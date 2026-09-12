@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="de-CH">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Finanzplan Denise 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="stil.css" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><rect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%233A2E22%22/><text x=%2216%22 y=%2223%22 font-family=%22Georgia,serif%22 font-size=%2218%22 font-weight=%22700%22 fill=%22%23FBF8F3%22 text-anchor=%22middle%22>D</text></svg>" />
+</head>
+<body>
+
+<header class="kopfzeile">
+  <span class="wortzeichen">
+    <span class="wortzeichen-mal" aria-hidden="true">D</span>
+    <span>
+      <span class="wortzeichen-name">FINANZPLAN</span>
+      <span class="wortzeichen-zusatz">Denise &middot; Meine Angebote 2026</span>
+    </span>
+  </span>
+
+  <div class="kopfzeile-konto">
+    <div class="segment" role="group" aria-label="Szenario">
+      <button type="button" class="segment-knopf" data-szenario="alle">Alle</button>
+      <button type="button" class="segment-knopf" data-szenario="min">min</button>
+      <button type="button" class="segment-knopf" data-szenario="norm">norm</button>
+      <button type="button" class="segment-knopf" data-szenario="max">max</button>
+    </div>
+    <span class="abzeichen abzeichen-neutral" id="stand">gespeichert</span>
+    <button type="button" class="knopf knopf-umriss knopf-klein" id="zuruecksetzen">Zurücksetzen</button>
+  </div>
+</header>
+
+<main class="inhalt">
+
+  <section class="abschnitt" style="--verzug:0">
+    <div class="kennzahlen" id="kennzahlen"></div>
+  </section>
+
+  <section class="abschnitt raster-zwei" style="--verzug:1">
+    <div class="karte">
+      <div class="karte-kopf">
+        <div>
+          <h2>Angebote im Vergleich</h2>
+          <p class="klein gedaempft">Nur gezählte Zeilen · sortiert nach Wert</p>
+        </div>
+        <div class="segment segment-klein" role="group" aria-label="Kennzahl">
+          <button type="button" class="segment-knopf" data-mass="monat">Umsatz/Mt</button>
+          <button type="button" class="segment-knopf" data-mass="stunden">Std/Woche</button>
+          <button type="button" class="segment-knopf" data-mass="satz">Stundensatz</button>
+        </div>
+      </div>
+      <div id="diagramm" class="diagramm"></div>
+    </div>
+
+    <div class="karte karte-schmal">
+      <h2>Ziel &amp; Kapazität</h2>
+
+      <div class="regler">
+        <label class="regler-kopf" for="ziel">
+          <span>Zielumsatz pro Monat</span>
+          <span class="zahl regler-wert" id="ziel-wert"></span>
+        </label>
+        <input type="range" id="ziel" min="0" max="20000" step="250" />
+        <div class="messbalken"><span id="ziel-balken"></span></div>
+        <p class="klein" id="ziel-text"></p>
+      </div>
+
+      <div class="regler">
+        <label class="regler-kopf" for="kapazitaet">
+          <span>Kapazität Arbeitsstunden/Woche</span>
+          <span class="zahl regler-wert" id="kapazitaet-wert"></span>
+        </label>
+        <input type="range" id="kapazitaet" min="1" max="60" step="0.5" />
+        <div class="messbalken"><span id="kapazitaet-balken"></span></div>
+        <p class="klein" id="kapazitaet-text"></p>
+      </div>
+
+      <dl class="stammdaten stammdaten-zwei" id="eckwerte"></dl>
+    </div>
+  </section>
+
+  <section class="abschnitt" style="--verzug:2">
+    <h2 class="abschnitt-titel">Angebote</h2>
+    <div id="bloecke" class="bloecke"></div>
+  </section>
+
+  <section class="abschnitt" style="--verzug:3">
+    <div class="karte">
+      <div class="karte-kopf">
+        <div>
+          <h2>Annahmen</h2>
+          <p class="klein gedaempft">Gelten für alle Umrechnungen Monat &rarr; Woche &rarr; Jahr</p>
+        </div>
+      </div>
+      <div class="annahmen">
+        <label class="feld">
+          <span class="feld-beschriftung">Wochen pro Monat</span>
+          <input type="number" id="wochen" min="1" max="6" step="0.01" />
+          <span class="feld-hilfe">Die Tabelle rechnet mit 4. Kalendarisch korrekt wären 4.33.</span>
+        </label>
+        <div class="hinweis">
+          <p class="hinweis-titel">Zwei Abweichungen zur Excel-Datei</p>
+          <p class="klein">
+            <strong>1.</strong> Die Summenzeile der Tabelle addierte nur <span class="zahl">H8:H27</span> &mdash; Sonderpreise,
+            Halbjahresbegleitung im Gruppensetting, Jahresbegleitung und Tagesseminare fielen aus dem Total.
+            Hier zählt jede Zeile mit, die angehakt ist.
+          </p>
+          <p class="klein">
+            <strong>2.</strong> Der Wochenumsatz der Halbjahresbegleitung im 1:1 war durch die Sitzungszahl geteilt
+            (<span class="zahl">=F/6/4/E*C</span>) und passte deshalb nicht zum Monatsumsatz. Hier gilt durchgehend
+            <span class="zahl">Woche = Monat / Wochen pro Monat</span>.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="fuss klein gedaempft">
+    Alle Werte in CHF. Eingaben bleiben lokal im Browser gespeichert &mdash; nichts wird gesendet.
+  </footer>
+
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

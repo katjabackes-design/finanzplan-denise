@@ -1,0 +1,11 @@
+{
+  // Rein statische Seite: ein Worker, der nur den Ordner `oeffentlich` ausliefert.
+  // Kein Skript, kein Build — `not_found_handling: single-page-application`
+  // braucht es nicht, die Seite hat genau eine Adresse.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "finanzplan-denise",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./oeffentlich"
+  }
+}
