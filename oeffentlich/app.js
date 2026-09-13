@@ -346,9 +346,28 @@ function torFormularHtml() {
   return (
     '<form class="konto-formular" id="konto-formular">' +
       '<input type="email" id="konto-email" class="konto-eingabe" placeholder="deine@email.ch" autocomplete="email" required>' +
-      '<button type="submit" class="knopf knopf-primaer knopf-klein">Login-Link senden</button>' +
+      '<input type="password" id="konto-passwort" class="konto-eingabe" placeholder="Passwort" autocomplete="current-password" minlength="6" required>' +
+      '<div style="display:flex; gap:8px">' +
+        '<button type="submit" data-aktion="anmelden" class="knopf knopf-primaer knopf-klein" style="flex:1">Anmelden</button>' +
+        '<button type="submit" data-aktion="registrieren" class="knopf knopf-umriss knopf-klein" style="flex:1">Registrieren</button>' +
+      '</div>' +
+      '<p class="konto-status" id="konto-fehler"></p>' +
     '</form>'
   );
+}
+
+function kontoFehlertext(error, aktion) {
+  const m = error.message || '';
+  if (m.includes('already registered') || m.includes('already exists')) {
+    return 'Diese Adresse ist schon registriert — auf «Anmelden» klicken.';
+  }
+  if (m.includes('Invalid login credentials')) {
+    return 'E-Mail oder Passwort stimmt nicht.';
+  }
+  if (m.toLowerCase().includes('password')) {
+    return 'Passwort zu kurz (mindestens 6 Zeichen).';
+  }
+  return aktion === 'registrieren' ? 'Registrierung fehlgeschlagen.' : 'Anmeldung fehlgeschlagen.';
 }
 
 // Vor dem ersten Sitzungscheck bleiben Tor und Inhalt beide verborgen —
@@ -894,23 +913,34 @@ function verdrahte() {
   document.body.addEventListener('submit', async (e) => {
     if (e.target.id !== 'konto-formular') return;
     e.preventDefault();
-    const eingabe = document.getElementById('konto-email');
-    const email = eingabe.value.trim();
-    if (email === '') return;
-    const knopf = e.target.querySelector('button');
-    knopf.disabled = true;
-    knopf.textContent = 'Wird gesendet …';
-    const { error } = await sb.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: window.location.origin + window.location.pathname },
-    });
+    const email = document.getElementById('konto-email').value.trim();
+    const passwort = document.getElementById('konto-passwort').value;
+    const fehlerfeld = document.getElementById('konto-fehler');
+    fehlerfeld.textContent = '';
+    if (email === '' || passwort === '') return;
+
+    const aktion = e.submitter && e.submitter.dataset.aktion === 'registrieren' ? 'registrieren' : 'anmelden';
+    const knoepfe = e.target.querySelectorAll('button');
+    knoepfe.forEach((k) => { k.disabled = true; });
+    const aktivKnopf = e.submitter;
+    const textVorher = aktivKnopf.textContent;
+    aktivKnopf.textContent = aktion === 'registrieren' ? 'Registrierung …' : 'Anmeldung …';
+
+    const { data, error } = aktion === 'registrieren'
+      ? await sb.auth.signUp({ email, password: passwort })
+      : await sb.auth.signInWithPassword({ email, password: passwort });
+
     if (error) {
       console.error(error);
-      knopf.disabled = false;
-      knopf.textContent = 'Fehlgeschlagen — nochmal?';
+      knoepfe.forEach((k) => { k.disabled = false; });
+      aktivKnopf.textContent = textVorher;
+      fehlerfeld.textContent = kontoFehlertext(error, aktion);
       return;
     }
-    e.target.innerHTML = '<span class="konto-status">Link geschickt an ' + esc(email) + ' — E-Mail-Postfach prüfen.</span>';
+
+    if (aktion === 'registrieren' && data.session === null) {
+      e.target.innerHTML = '<span class="konto-status">Fast fertig — Bestätigungslink in der E-Mail anklicken, dann geht\'s los.</span>';
+    }
   });
 
   // Pfeiltasten im Zahlenfeld sollen nicht die Seite scrollen, sondern zählen.
