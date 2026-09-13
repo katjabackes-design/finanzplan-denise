@@ -18,6 +18,15 @@
 
 const SCHLUESSEL = 'finanzplan-denise-v1';
 
+/* ── Konto (Supabase) ───────────────────────────────────────────────────────
+ * anon-Key ist bewusst öffentlich im Frontend-Code — abgesichert wird über
+ * Row-Level-Security in der Datenbank, nicht durch Geheimhaltung des Keys.
+ */
+const SUPABASE_URL = 'https://kdlhplgrvehnccbzwiaj.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtkbGhwbGdydmVobmNjYnp3aWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyMzg0OTcsImV4cCI6MjEwNDgxNDQ5N30.glfCkZ_PV7xzEefuLYyW9N6WR9ZKRpVd0SAk5YwOBj8';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let konto = null;
+
 function vorgabe() {
   return {
     szenario: 'norm',
@@ -266,7 +275,11 @@ function laden() {
   } catch {
     gespeichert = null;
   }
-  if (gespeichert === null) return frisch;
+  return verschmelze(frisch, gespeichert);
+}
+
+function verschmelze(frisch, gespeichert) {
+  if (gespeichert === null || gespeichert === undefined) return frisch;
 
   // Verschmelzen statt ersetzen: eine ältere Fassung darf keine Blöcke schlucken.
   frisch.szenario = gespeichert.szenario ?? frisch.szenario;
@@ -302,15 +315,75 @@ function laden() {
 let speicherUhr = null;
 function speichern() {
   clearTimeout(speicherUhr);
-  speicherUhr = setTimeout(() => {
+  speicherUhr = setTimeout(async () => {
     try {
       localStorage.setItem(SCHLUESSEL, JSON.stringify(zustand));
-      const stand = document.getElementById('stand');
-      stand.textContent = 'gespeichert';
-      stand.className = 'abzeichen abzeichen-gut';
-      setTimeout(() => { stand.className = 'abzeichen abzeichen-neutral'; }, 1200);
     } catch { /* privates Fenster — dann eben ohne Gedächtnis */ }
+
+    const stand = document.getElementById('stand');
+    if (konto !== null) {
+      const { error } = await sb.from('finanzplan_daten').upsert({
+        user_id: konto.id,
+        daten: zustand,
+        aktualisiert_am: new Date().toISOString(),
+      });
+      if (error) {
+        console.error(error);
+        stand.textContent = 'Fehler beim Sichern';
+        stand.className = 'abzeichen abzeichen-ernst';
+        return;
+      }
+    }
+    stand.textContent = 'gespeichert';
+    stand.className = 'abzeichen abzeichen-gut';
+    setTimeout(() => { stand.className = 'abzeichen abzeichen-neutral'; }, 1200);
   }, 400);
+}
+
+/* ── Konto: Login, Logout, Laden vom Server ────────────────────────────────── */
+
+function kontoHtml() {
+  if (konto === null) {
+    return (
+      '<form class="konto" id="konto-formular">' +
+        '<input type="email" id="konto-email" class="konto-eingabe" placeholder="E-Mail für Login" autocomplete="email" required>' +
+        '<button type="submit" class="knopf knopf-umriss knopf-klein">Login-Link senden</button>' +
+      '</form>'
+    );
+  }
+  return (
+    '<div class="konto">' +
+      '<span class="abzeichen abzeichen-gut" title="Angemeldet">' + esc(konto.email) + '</span>' +
+      '<button type="button" class="knopf knopf-umriss knopf-klein" id="konto-abmelden">Abmelden</button>' +
+    '</div>'
+  );
+}
+
+function zeichneKonto() {
+  const platz = document.getElementById('konto-platz');
+  if (platz !== null) platz.innerHTML = kontoHtml();
+}
+
+async function ladeVonServer() {
+  if (konto === null) return;
+  const { data, error } = await sb.from('finanzplan_daten').select('daten').eq('user_id', konto.id).maybeSingle();
+  if (error) { console.error(error); return; }
+  zustand = verschmelze(vorgabe(), data === null ? null : data.daten);
+  zeichne();
+  aktualisiere();
+}
+
+async function initKonto() {
+  const { data: { session } } = await sb.auth.getSession();
+  konto = session === null ? null : { id: session.user.id, email: session.user.email };
+  zeichneKonto();
+  if (konto !== null) await ladeVonServer();
+
+  sb.auth.onAuthStateChange((_ereignis, session) => {
+    konto = session === null ? null : { id: session.user.id, email: session.user.email };
+    zeichneKonto();
+    if (konto !== null) ladeVonServer();
+  });
 }
 
 /* ── 3 · Gerüst ─────────────────────────────────────────────────────────── */
@@ -804,7 +877,34 @@ function verdrahte() {
       zustand = vorgabe();
       zeichne();
       aktualisiere();
+      return;
     }
+
+    if (e.target.id === 'konto-abmelden') {
+      sb.auth.signOut();
+    }
+  });
+
+  document.body.addEventListener('submit', async (e) => {
+    if (e.target.id !== 'konto-formular') return;
+    e.preventDefault();
+    const eingabe = document.getElementById('konto-email');
+    const email = eingabe.value.trim();
+    if (email === '') return;
+    const knopf = e.target.querySelector('button');
+    knopf.disabled = true;
+    knopf.textContent = 'Wird gesendet …';
+    const { error } = await sb.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.href },
+    });
+    if (error) {
+      console.error(error);
+      knopf.disabled = false;
+      knopf.textContent = 'Fehlgeschlagen — nochmal?';
+      return;
+    }
+    e.target.innerHTML = '<span class="konto-status">Link geschickt an ' + esc(email) + ' — E-Mail-Postfach prüfen.</span>';
   });
 
   // Pfeiltasten im Zahlenfeld sollen nicht die Seite scrollen, sondern zählen.
@@ -816,3 +916,4 @@ function verdrahte() {
 zeichne();
 verdrahte();
 aktualisiere();
+initKonto();

@@ -29,6 +29,7 @@
       <button type="button" class="segment-knopf" data-szenario="max">max</button>
     </div>
     <span class="abzeichen abzeichen-neutral" id="stand">gespeichert</span>
+    <div id="konto-platz"></div>
     <button type="button" class="knopf knopf-umriss knopf-klein" id="zuruecksetzen">Zurücksetzen</button>
   </div>
 </header>
@@ -119,11 +120,13 @@
   </section>
 
   <footer class="fuss klein gedaempft">
-    Alle Werte in CHF. Eingaben bleiben lokal im Browser gespeichert &mdash; nichts wird gesendet.
+    Alle Werte in CHF. Ohne Login bleiben Eingaben nur lokal in diesem Browser. Mit Login werden sie
+    zusätzlich verschlüsselt in deinem privaten Konto gespeichert &mdash; sichtbar nur für dich.
   </footer>
 
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
