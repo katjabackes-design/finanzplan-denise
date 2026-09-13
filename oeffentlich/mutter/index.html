@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Расчёт дохода 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../stil.css" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><rect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%233A2E22%22/><text x=%2216%22 y=%2223%22 font-family=%22Georgia,serif%22 font-size=%2218%22 font-weight=%22700%22 fill=%22%23FBF8F3%22 text-anchor=%22middle%22>Р</text></svg>" />
+</head>
+<body>
+
+<div id="tor" class="tor" hidden>
+  <div class="tor-karte">
+    <span class="wortzeichen">
+      <span class="wortzeichen-mal" aria-hidden="true">Р</span>
+      <span>
+        <span class="wortzeichen-name">РАСЧЁТ ДОХОДА</span>
+        <span class="wortzeichen-zusatz">Услуги &middot; 2026</span>
+      </span>
+    </span>
+    <p class="klein gedaempft" style="margin-top:14px">
+      Войдите, чтобы увидеть и редактировать свой расчёт. Ещё нет аккаунта?
+      Просто введите e-mail — аккаунт создастся автоматически.
+    </p>
+    <div id="konto-platz"></div>
+  </div>
+</div>
+
+<div id="app-inhalt" hidden>
+
+<header class="kopfzeile">
+  <span class="wortzeichen">
+    <span class="wortzeichen-mal" aria-hidden="true">Р</span>
+    <span>
+      <span class="wortzeichen-name">РАСЧЁТ ДОХОДА</span>
+      <span class="wortzeichen-zusatz">Услуги &middot; 2026</span>
+    </span>
+  </span>
+
+  <div class="kopfzeile-konto">
+    <div class="segment" role="group" aria-label="Сценарий">
+      <button type="button" class="segment-knopf" data-szenario="alle">Все</button>
+      <button type="button" class="segment-knopf" data-szenario="min">мин</button>
+      <button type="button" class="segment-knopf" data-szenario="norm">норм</button>
+      <button type="button" class="segment-knopf" data-szenario="max">мах</button>
+    </div>
+    <span class="abzeichen abzeichen-neutral" id="stand">сохранено</span>
+    <span class="abzeichen abzeichen-gut" id="konto-email-anzeige" title="Вошли"></span>
+    <button type="button" class="knopf knopf-umriss knopf-klein" id="konto-abmelden">Выйти</button>
+    <button type="button" class="knopf knopf-umriss knopf-klein" id="zuruecksetzen">Сбросить</button>
+  </div>
+</header>
+
+<main class="inhalt">
+
+  <section class="abschnitt" style="--verzug:0">
+    <div class="kennzahlen" id="kennzahlen"></div>
+  </section>
+
+  <section class="abschnitt raster-zwei" style="--verzug:1">
+    <div class="karte">
+      <div class="karte-kopf">
+        <div>
+          <h2>Сравнение услуг</h2>
+          <p class="klein gedaempft">Только учтённые строки &middot; по убыванию</p>
+        </div>
+        <div class="segment segment-klein" role="group" aria-label="Показатель">
+          <button type="button" class="segment-knopf" data-mass="monat">Доход/мес</button>
+          <button type="button" class="segment-knopf" data-mass="stunden">Час/нед</button>
+          <button type="button" class="segment-knopf" data-mass="satz">Цена часа</button>
+        </div>
+      </div>
+      <div id="diagramm" class="diagramm"></div>
+    </div>
+
+    <div class="karte karte-schmal">
+      <h2>Цель и загрузка</h2>
+
+      <div class="regler">
+        <label class="regler-kopf" for="ziel">
+          <span>Цель по доходу в месяц</span>
+          <span class="zahl regler-wert" id="ziel-wert"></span>
+        </label>
+        <input type="range" id="ziel" min="0" max="20000" step="250" />
+        <div class="messbalken"><span id="ziel-balken"></span></div>
+        <p class="klein" id="ziel-text"></p>
+      </div>
+
+      <div class="regler">
+        <label class="regler-kopf" for="kapazitaet">
+          <span>Загрузка, часов в неделю</span>
+          <span class="zahl regler-wert" id="kapazitaet-wert"></span>
+        </label>
+        <input type="range" id="kapazitaet" min="1" max="60" step="0.5" />
+        <div class="messbalken"><span id="kapazitaet-balken"></span></div>
+        <p class="klein" id="kapazitaet-text"></p>
+      </div>
+
+      <dl class="stammdaten stammdaten-zwei" id="eckwerte"></dl>
+    </div>
+  </section>
+
+  <section class="abschnitt" style="--verzug:2">
+    <h2 class="abschnitt-titel">Услуги</h2>
+    <div id="bloecke" class="bloecke"></div>
+  </section>
+
+  <section class="abschnitt" style="--verzug:3">
+    <div class="karte">
+      <div class="karte-kopf">
+        <div>
+          <h2>Настройки</h2>
+          <p class="klein gedaempft">Влияет на пересчёт месяц &rarr; неделя &rarr; год</p>
+        </div>
+      </div>
+      <div class="annahmen">
+        <label class="feld">
+          <span class="feld-beschriftung">Недель в месяце</span>
+          <input type="number" id="wochen" min="1" max="6" step="0.01" />
+          <span class="feld-hilfe">Расчёт использует 4. Календарно точнее было бы 4.33.</span>
+        </label>
+      </div>
+    </div>
+  </section>
+
+  <footer class="fuss klein gedaempft">
+    Все суммы в CHF. Видно только вам, сохраняется в вашем личном аккаунте.
+  </footer>
+
+</main>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
