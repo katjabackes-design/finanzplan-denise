@@ -12,6 +12,25 @@
 </head>
 <body>
 
+<div id="tor" class="tor" hidden>
+  <div class="tor-karte">
+    <span class="wortzeichen">
+      <span class="wortzeichen-mal" aria-hidden="true">D</span>
+      <span>
+        <span class="wortzeichen-name">FINANZPLAN</span>
+        <span class="wortzeichen-zusatz">Denise &middot; Meine Angebote 2026</span>
+      </span>
+    </span>
+    <p class="klein gedaempft" style="margin-top:14px">
+      Melde dich an, um deinen Finanzplan zu sehen und zu bearbeiten. Neu hier? Einfach
+      E-Mail eingeben — ein Konto wird automatisch angelegt.
+    </p>
+    <div id="konto-platz"></div>
+  </div>
+</div>
+
+<div id="app-inhalt" hidden>
+
 <header class="kopfzeile">
   <span class="wortzeichen">
     <span class="wortzeichen-mal" aria-hidden="true">D</span>
@@ -29,7 +48,8 @@
       <button type="button" class="segment-knopf" data-szenario="max">max</button>
     </div>
     <span class="abzeichen abzeichen-neutral" id="stand">gespeichert</span>
-    <div id="konto-platz"></div>
+    <span class="abzeichen abzeichen-gut" id="konto-email-anzeige" title="Angemeldet"></span>
+    <button type="button" class="knopf knopf-umriss knopf-klein" id="konto-abmelden">Abmelden</button>
     <button type="button" class="knopf knopf-umriss knopf-klein" id="zuruecksetzen">Zurücksetzen</button>
   </div>
 </header>
@@ -120,11 +140,12 @@
   </section>
 
   <footer class="fuss klein gedaempft">
-    Alle Werte in CHF. Ohne Login bleiben Eingaben nur lokal in diesem Browser. Mit Login werden sie
-    zusätzlich verschlüsselt in deinem privaten Konto gespeichert &mdash; sichtbar nur für dich.
+    Alle Werte in CHF. Sichtbar nur für dich, gespeichert in deinem privaten Konto.
   </footer>
 
 </main>
+
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="app.js"></script>

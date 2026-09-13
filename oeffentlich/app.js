@@ -342,26 +342,32 @@ function speichern() {
 
 /* ── Konto: Login, Logout, Laden vom Server ────────────────────────────────── */
 
-function kontoHtml() {
-  if (konto === null) {
-    return (
-      '<form class="konto" id="konto-formular">' +
-        '<input type="email" id="konto-email" class="konto-eingabe" placeholder="E-Mail für Login" autocomplete="email" required>' +
-        '<button type="submit" class="knopf knopf-umriss knopf-klein">Login-Link senden</button>' +
-      '</form>'
-    );
-  }
+function torFormularHtml() {
   return (
-    '<div class="konto">' +
-      '<span class="abzeichen abzeichen-gut" title="Angemeldet">' + esc(konto.email) + '</span>' +
-      '<button type="button" class="knopf knopf-umriss knopf-klein" id="konto-abmelden">Abmelden</button>' +
-    '</div>'
+    '<form class="konto-formular" id="konto-formular">' +
+      '<input type="email" id="konto-email" class="konto-eingabe" placeholder="deine@email.ch" autocomplete="email" required>' +
+      '<button type="submit" class="knopf knopf-primaer knopf-klein">Login-Link senden</button>' +
+    '</form>'
   );
 }
 
+// Vor dem ersten Sitzungscheck bleiben Tor und Inhalt beide verborgen —
+// lieber ein leerer Moment als ein Aufblitzen des Finanzplans ohne Login.
 function zeichneKonto() {
-  const platz = document.getElementById('konto-platz');
-  if (platz !== null) platz.innerHTML = kontoHtml();
+  const tor = document.getElementById('tor');
+  const app = document.getElementById('app-inhalt');
+  const emailAnzeige = document.getElementById('konto-email-anzeige');
+
+  if (konto === null) {
+    app.hidden = true;
+    tor.hidden = false;
+    const platz = document.getElementById('konto-platz');
+    if (platz !== null) platz.innerHTML = torFormularHtml();
+  } else {
+    tor.hidden = true;
+    app.hidden = false;
+    if (emailAnzeige !== null) emailAnzeige.textContent = konto.email;
+  }
 }
 
 async function ladeVonServer() {
@@ -896,7 +902,7 @@ function verdrahte() {
     knopf.textContent = 'Wird gesendet …';
     const { error } = await sb.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: window.location.href },
+      options: { emailRedirectTo: window.location.origin + window.location.pathname },
     });
     if (error) {
       console.error(error);
