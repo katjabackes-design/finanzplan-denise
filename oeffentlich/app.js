@@ -34,6 +34,11 @@ function vorgabe() {
     wochenProMonat: 4,
     zielUmsatz: 8000,
     kapazitaet: 20,
+    fixkosten: [
+      { id: 'fk1', name: 'Marketing', betrag: 0 },
+      { id: 'fk2', name: 'Buchhaltung', betrag: 0 },
+      { id: 'fk3', name: 'Sonstiges', betrag: 0 },
+    ],
     bloecke: [
       {
         id: 'sonderpreise',
@@ -70,7 +75,7 @@ function vorgabe() {
       },
       {
         id: 'story1zu1',
-        titel: 'Story of your life — 3 Monate',
+        titel: 'Story of your life',
         zusatz: 'Paket im 1:1 + KI',
         art: 'paket',
         gruppe: false,
@@ -83,7 +88,7 @@ function vorgabe() {
       },
       {
         id: 'storyGruppe',
-        titel: 'Story of your life — 3 Monate',
+        titel: 'Story of your life',
         zusatz: 'Paket im Gruppensetting + KI',
         art: 'paket',
         gruppe: true,
@@ -176,6 +181,19 @@ function vorgabe() {
               { name: 'BeobachterIn',  d: 0, g: 120 },
             ],
           },
+        ],
+      },
+      {
+        id: 'ausbildungGruppe',
+        titel: 'Ausbildung — Gruppenbegleitung',
+        zusatz: 'Im Gruppensetting · Paketpreis pro Person',
+        art: 'paket',
+        gruppe: true,
+        laufzeit: 6,
+        zeilen: [
+          { id: 'ag1', name: 'min',  szenario: 'min',  aktiv: true, c: 0, d: 0, e: 0, f: 0, j: 0 },
+          { id: 'ag2', name: 'norm', szenario: 'norm', aktiv: true, c: 0, d: 0, e: 0, f: 0, j: 0 },
+          { id: 'ag3', name: 'max',  szenario: 'max',  aktiv: true, c: 0, d: 0, e: 0, f: 0, j: 0 },
         ],
       },
     ],
@@ -288,6 +306,11 @@ function verschmelze(frisch, gespeichert) {
   frisch.zielUmsatz = gespeichert.zielUmsatz ?? frisch.zielUmsatz;
   frisch.kapazitaet = gespeichert.kapazitaet ?? frisch.kapazitaet;
 
+  for (const posten of frisch.fixkosten) {
+    const alt = (gespeichert.fixkosten ?? []).find((f) => f.id === posten.id);
+    if (alt !== undefined && typeof alt.betrag === 'number') posten.betrag = alt.betrag;
+  }
+
   for (const block of frisch.bloecke) {
     const alt = (gespeichert.bloecke ?? []).find((b) => b.id === block.id);
     if (alt === undefined) continue;
@@ -315,29 +338,31 @@ function verschmelze(frisch, gespeichert) {
 let speicherUhr = null;
 function speichern() {
   clearTimeout(speicherUhr);
-  speicherUhr = setTimeout(async () => {
-    try {
-      localStorage.setItem(SCHLUESSEL, JSON.stringify(zustand));
-    } catch { /* privates Fenster — dann eben ohne Gedächtnis */ }
+  speicherUhr = setTimeout(speichernJetzt, 400);
+}
 
-    const stand = document.getElementById('stand');
-    if (konto !== null) {
-      const { error } = await sb.from('finanzplan_daten').upsert({
-        user_id: konto.id,
-        daten: zustand,
-        aktualisiert_am: new Date().toISOString(),
-      });
-      if (error) {
-        console.error(error);
-        stand.textContent = 'Fehler beim Sichern';
-        stand.className = 'abzeichen abzeichen-ernst';
-        return;
-      }
+async function speichernJetzt() {
+  try {
+    localStorage.setItem(SCHLUESSEL, JSON.stringify(zustand));
+  } catch { /* privates Fenster — dann eben ohne Gedächtnis */ }
+
+  const stand = document.getElementById('stand');
+  if (konto !== null) {
+    const { error } = await sb.from('finanzplan_daten').upsert({
+      user_id: konto.id,
+      daten: zustand,
+      aktualisiert_am: new Date().toISOString(),
+    });
+    if (error) {
+      console.error(error);
+      stand.textContent = 'Fehler beim Sichern';
+      stand.className = 'abzeichen abzeichen-ernst';
+      return;
     }
-    stand.textContent = 'gespeichert';
-    stand.className = 'abzeichen abzeichen-gut';
-    setTimeout(() => { stand.className = 'abzeichen abzeichen-neutral'; }, 1200);
-  }, 400);
+  }
+  stand.textContent = 'gespeichert';
+  stand.className = 'abzeichen abzeichen-gut';
+  setTimeout(() => { stand.className = 'abzeichen abzeichen-neutral'; }, 1200);
 }
 
 /* ── Konto: Login, Logout, Laden vom Server ────────────────────────────────── */
@@ -641,6 +666,21 @@ function blockHtml(block) {
   );
 }
 
+/* ── Fixkosten ──────────────────────────────────────────────────────────── */
+
+function fixkostenHtml() {
+  return zustand.fixkosten
+    .map(
+      (f) =>
+        '<label class="feld">' +
+          '<span class="feld-beschriftung">' + esc(f.name) + '</span>' +
+          '<input type="number" inputmode="decimal" min="0" step="10" value="' + f.betrag +
+          '" data-fixkosten="' + f.id + '" aria-label="' + esc(f.name) + '">' +
+        '</label>',
+    )
+    .join('');
+}
+
 /* ── Kennzahlen und Diagramm ────────────────────────────────────────────── */
 
 function kennzahlenHtml() {
@@ -809,12 +849,17 @@ function aktualisiere() {
     '<span class="abzeichen abzeichen-' + kapStufe + '">' + Math.round(auslastung * 100) + '&nbsp;% ausgelastet</span> ' +
     (rest >= 0 ? std(rest) + ' Std. pro Woche frei.' : std(-rest) + ' Std. pro Woche über der Kapazität.');
 
+  /* Fixkosten */
+  const fixkostenSumme = zustand.fixkosten.reduce((s, f) => s + (f.betrag || 0), 0);
+  document.getElementById('fixkosten-summe').textContent = geld(fixkostenSumme) + ' CHF / Monat';
+
   /* Eckwerte */
   document.getElementById('eckwerte').innerHTML =
     '<div><dt>Umsatz pro Woche</dt><dd>' + geld(total.umsatzWoche) + ' CHF</dd></div>' +
     '<div><dt>Arbeitsstunden pro Monat</dt><dd>' + std(total.stundenMonat) + ' Std.</dd></div>' +
     '<div><dt>Umsatz pro Arbeitstag</dt><dd>' + geld(total.umsatzWoche / 5) + ' CHF</dd></div>' +
-    '<div><dt>Gezählte Zeilen</dt><dd>' + gezaehlt + ' / ' + vorhanden + '</dd></div>';
+    '<div><dt>Gezählte Zeilen</dt><dd>' + gezaehlt + ' / ' + vorhanden + '</dd></div>' +
+    '<div><dt>Netto-Umsatz pro Monat (nach Fixkosten)</dt><dd>' + geld(total.umsatzMonat - fixkostenSumme) + ' CHF</dd></div>';
 
   zeichneDiagramm();
 }
@@ -830,6 +875,7 @@ function findeZeile(id) {
 }
 
 function zeichne() {
+  document.getElementById('fixkosten').innerHTML = fixkostenHtml();
   document.getElementById('kennzahlen').innerHTML = kennzahlenHtml();
   document.getElementById('bloecke').innerHTML = zustand.bloecke.map(blockHtml).join('');
 
@@ -863,6 +909,16 @@ function verdrahte() {
         zeile[ziel.dataset.feld] = zahl;
       }
       ziel.classList.toggle('leer', zahl === 0);
+      aktualisiere();
+      speichern();
+      return;
+    }
+
+    if (ziel.dataset.fixkosten !== undefined) {
+      const posten = zustand.fixkosten.find((f) => f.id === ziel.dataset.fixkosten);
+      if (posten === undefined) return;
+      const wert = Number.parseFloat(ziel.value);
+      posten.betrag = Number.isFinite(wert) && wert >= 0 ? wert : 0;
       aktualisiere();
       speichern();
       return;
@@ -937,6 +993,12 @@ function verdrahte() {
       zustand = vorgabe();
       zeichne();
       aktualisiere();
+      return;
+    }
+
+    if (e.target.id === 'jetzt-speichern') {
+      clearTimeout(speicherUhr);
+      speichernJetzt();
       return;
     }
 

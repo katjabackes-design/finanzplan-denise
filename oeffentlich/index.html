@@ -3,12 +3,25 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Finanzplan Denise 2026</title>
+<title>Finanzplan Denise</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="stil.css" />
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><rect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%233A2E22%22/><text x=%2216%22 y=%2223%22 font-family=%22Georgia,serif%22 font-size=%2218%22 font-weight=%22700%22 fill=%22%23FBF8F3%22 text-anchor=%22middle%22>D</text></svg>" />
+<style>
+  /* Eigener Akzentton nur für diese Seite: Koralle statt Fastschwarz —
+     für Buttons, Regler und alle Ergebniszahlen. Ergebnisspalten links statt
+     rechts ausgerichtet, damit die Zahl direkt unter ihrer Spaltenbeschriftung
+     steht. */
+  :root { --primaer: #d9502f; --primaer-gedrueckt: #b33f23; }
+  .kennzahl-wert, .tabelle td.ergebnis, .block-summe-wert, .balkenwert { color: var(--primaer); }
+  .kennzahl-hero .kennzahl-wert { color: var(--auf-dunkel); }
+  .tabelle th.rechts, .tabelle td.ergebnis, .zelleneingabe,
+  .seminar th.rechts, .seminar td.rechts { text-align: left; }
+  .fixkosten-liste { display: flex; flex-direction: column; gap: 14px; }
+  .fixkosten-liste .feld { margin: 0; }
+</style>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><rect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%23D9502F%22/><text x=%2216%22 y=%2223%22 font-family=%22Georgia,serif%22 font-size=%2218%22 font-weight=%22700%22 fill=%22%23FBF8F3%22 text-anchor=%22middle%22>D</text></svg>" />
 </head>
 <body>
 
@@ -18,7 +31,7 @@
       <span class="wortzeichen-mal" aria-hidden="true">D</span>
       <span>
         <span class="wortzeichen-name">FINANZPLAN</span>
-        <span class="wortzeichen-zusatz">Denise &middot; Meine Angebote 2026</span>
+        <span class="wortzeichen-zusatz">Denise &middot; Meine Angebote</span>
       </span>
     </span>
     <p class="klein gedaempft" style="margin-top:14px">
@@ -36,7 +49,7 @@
     <span class="wortzeichen-mal" aria-hidden="true">D</span>
     <span>
       <span class="wortzeichen-name">FINANZPLAN</span>
-      <span class="wortzeichen-zusatz">Denise &middot; Meine Angebote 2026</span>
+      <span class="wortzeichen-zusatz">Denise &middot; Meine Angebote</span>
     </span>
   </span>
 
@@ -51,6 +64,7 @@
     <span class="abzeichen abzeichen-gut" id="konto-email-anzeige" title="Angemeldet"></span>
     <button type="button" class="knopf knopf-umriss knopf-klein" id="passwort-aendern">Passwort ändern</button>
     <button type="button" class="knopf knopf-umriss knopf-klein" id="konto-abmelden">Abmelden</button>
+    <button type="button" class="knopf knopf-umriss knopf-klein" id="jetzt-speichern">Jetzt speichern</button>
     <button type="button" class="knopf knopf-umriss knopf-klein" id="zuruecksetzen">Zurücksetzen</button>
   </div>
 </header>
@@ -58,6 +72,19 @@
 <main class="inhalt">
 
   <section class="abschnitt" style="--verzug:0">
+    <div class="karte karte-schmal">
+      <div class="karte-kopf">
+        <div>
+          <h2>Fixkosten pro Monat</h2>
+          <p class="klein gedaempft">Laufende Ausgaben, unabhängig vom Umsatz</p>
+        </div>
+      </div>
+      <div id="fixkosten" class="fixkosten-liste"></div>
+      <p class="klein" style="margin-top:14px"><strong>Fixkosten gesamt:</strong> <span id="fixkosten-summe"></span></p>
+    </div>
+  </section>
+
+  <section class="abschnitt" style="--verzug:0.5">
     <div class="kennzahlen" id="kennzahlen"></div>
   </section>
 
