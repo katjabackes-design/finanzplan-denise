@@ -342,15 +342,33 @@ function speichern() {
 
 /* ── Konto: Login, Logout, Laden vom Server ────────────────────────────────── */
 
+let formModus = 'anmelden';
+
 function torFormularHtml() {
+  const istRegister = formModus === 'registrieren';
   return (
     '<form class="konto-formular" id="konto-formular">' +
       '<input type="email" id="konto-email" class="konto-eingabe" placeholder="deine@email.ch" autocomplete="email" required>' +
-      '<input type="password" id="konto-passwort" class="konto-eingabe" placeholder="Passwort" autocomplete="current-password" minlength="6" required>' +
-      '<div style="display:flex; gap:8px">' +
-        '<button type="submit" data-aktion="anmelden" class="knopf knopf-primaer knopf-klein" style="flex:1">Anmelden</button>' +
-        '<button type="submit" data-aktion="registrieren" class="knopf knopf-umriss knopf-klein" style="flex:1">Registrieren</button>' +
-      '</div>' +
+      '<input type="password" id="konto-passwort" class="konto-eingabe" placeholder="Passwort" ' +
+        'autocomplete="' + (istRegister ? 'new-password' : 'current-password') + '" minlength="6" required>' +
+      '<button type="submit" data-aktion="' + formModus + '" class="knopf knopf-primaer knopf-klein" style="width:100%">' +
+        (istRegister ? 'Registrieren' : 'Anmelden') +
+      '</button>' +
+      '<button type="button" id="konto-modus-wechsel" class="konto-link">' +
+        (istRegister ? 'Schon ein Konto? Anmelden' : 'Noch kein Konto? Registrieren') +
+      '</button>' +
+      '<button type="button" id="konto-passwort-vergessen" class="konto-link">Passwort vergessen?</button>' +
+      '<p class="konto-status" id="konto-fehler"></p>' +
+    '</form>'
+  );
+}
+
+function wiederherstellungHtml() {
+  return (
+    '<form class="konto-formular" id="konto-neues-passwort-formular">' +
+      '<p class="klein gedaempft">Neues Passwort festlegen (mindestens 6 Zeichen).</p>' +
+      '<input type="password" id="neues-passwort" class="konto-eingabe" placeholder="Neues Passwort" minlength="6" autocomplete="new-password" required>' +
+      '<button type="submit" class="knopf knopf-primaer knopf-klein">Passwort speichern</button>' +
       '<p class="konto-status" id="konto-fehler"></p>' +
     '</form>'
   );
@@ -389,6 +407,18 @@ function zeichneKonto() {
   }
 }
 
+// Klick auf den Link in der Passwort-Reset-Mail landet hier mit einer
+// PASSWORD_RECOVERY-Sitzung — ohne neues Passwort kommt man beim nächsten
+// Mal aber nicht mehr rein.
+function zeichneWiederherstellung() {
+  const tor = document.getElementById('tor');
+  const app = document.getElementById('app-inhalt');
+  app.hidden = true;
+  tor.hidden = false;
+  const platz = document.getElementById('konto-platz');
+  if (platz !== null) platz.innerHTML = wiederherstellungHtml();
+}
+
 async function ladeVonServer() {
   if (konto === null) return;
   const { data, error } = await sb.from('finanzplan_daten').select('daten').eq('user_id', konto.id).maybeSingle();
@@ -404,7 +434,11 @@ async function initKonto() {
   zeichneKonto();
   if (konto !== null) await ladeVonServer();
 
-  sb.auth.onAuthStateChange((_ereignis, session) => {
+  sb.auth.onAuthStateChange((ereignis, session) => {
+    if (ereignis === 'PASSWORD_RECOVERY') {
+      zeichneWiederherstellung();
+      return;
+    }
     konto = session === null ? null : { id: session.user.id, email: session.user.email };
     zeichneKonto();
     if (konto !== null) ladeVonServer();
@@ -907,10 +941,56 @@ function verdrahte() {
 
     if (e.target.id === 'konto-abmelden') {
       sb.auth.signOut();
+      return;
+    }
+
+    if (e.target.id === 'konto-modus-wechsel') {
+      formModus = formModus === 'registrieren' ? 'anmelden' : 'registrieren';
+      const platz = document.getElementById('konto-platz');
+      if (platz !== null) platz.innerHTML = torFormularHtml();
+      return;
+    }
+
+    if (e.target.id === 'konto-passwort-vergessen') {
+      const email = document.getElementById('konto-email').value.trim();
+      const fehlerfeld = document.getElementById('konto-fehler');
+      if (email === '') { fehlerfeld.textContent = 'Zuerst E-Mail eingeben.'; return; }
+      e.target.disabled = true;
+      sb.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + window.location.pathname,
+      }).then(({ error }) => {
+        if (error) {
+          console.error(error);
+          fehlerfeld.textContent = 'Link konnte nicht verschickt werden.';
+          e.target.disabled = false;
+          return;
+        }
+        fehlerfeld.textContent = 'Link zum Passwort-Setzen wurde verschickt.';
+      });
     }
   });
 
   document.body.addEventListener('submit', async (e) => {
+    if (e.target.id === 'konto-neues-passwort-formular') {
+      e.preventDefault();
+      const neuesPasswort = document.getElementById('neues-passwort').value;
+      const fehlerfeld = document.getElementById('konto-fehler');
+      const knopf = e.target.querySelector('button');
+      knopf.disabled = true;
+      const { error } = await sb.auth.updateUser({ password: neuesPasswort });
+      if (error) {
+        console.error(error);
+        knopf.disabled = false;
+        fehlerfeld.textContent = 'Passwort konnte nicht gespeichert werden.';
+        return;
+      }
+      const { data: { session } } = await sb.auth.getSession();
+      konto = session === null ? null : { id: session.user.id, email: session.user.email };
+      zeichneKonto();
+      if (konto !== null) await ladeVonServer();
+      return;
+    }
+
     if (e.target.id !== 'konto-formular') return;
     e.preventDefault();
     const email = document.getElementById('konto-email').value.trim();
@@ -919,12 +999,11 @@ function verdrahte() {
     fehlerfeld.textContent = '';
     if (email === '' || passwort === '') return;
 
-    const aktion = e.submitter && e.submitter.dataset.aktion === 'registrieren' ? 'registrieren' : 'anmelden';
-    const knoepfe = e.target.querySelectorAll('button');
-    knoepfe.forEach((k) => { k.disabled = true; });
-    const aktivKnopf = e.submitter;
-    const textVorher = aktivKnopf.textContent;
-    aktivKnopf.textContent = aktion === 'registrieren' ? 'Registrierung …' : 'Anmeldung …';
+    const aktion = formModus;
+    const knopf = e.target.querySelector('button[type="submit"]');
+    knopf.disabled = true;
+    const textVorher = knopf.textContent;
+    knopf.textContent = aktion === 'registrieren' ? 'Registrierung …' : 'Anmeldung …';
 
     const { data, error } = aktion === 'registrieren'
       ? await sb.auth.signUp({ email, password: passwort })
@@ -932,8 +1011,8 @@ function verdrahte() {
 
     if (error) {
       console.error(error);
-      knoepfe.forEach((k) => { k.disabled = false; });
-      aktivKnopf.textContent = textVorher;
+      knopf.disabled = false;
+      knopf.textContent = textVorher;
       fehlerfeld.textContent = kontoFehlertext(error, aktion);
       return;
     }
