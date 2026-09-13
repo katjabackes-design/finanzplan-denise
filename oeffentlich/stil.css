@@ -53,6 +53,11 @@
   border-color: var(--linie);
 }
 
+/* Ohne diese Regel gewinnt jede Klasse mit eigenem `display` (z.B. .tor)
+   gegen das hidden-Attribut — Autor-Regeln schlagen die UA-Regel, egal
+   wie niedrig ihre Spezifität ist. */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   background: var(--grund);
