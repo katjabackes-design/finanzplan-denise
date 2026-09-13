@@ -369,6 +369,7 @@ function wiederherstellungHtml() {
       '<p class="klein gedaempft">Neues Passwort festlegen (mindestens 6 Zeichen).</p>' +
       '<input type="password" id="neues-passwort" class="konto-eingabe" placeholder="Neues Passwort" minlength="6" autocomplete="new-password" required>' +
       '<button type="submit" class="knopf knopf-primaer knopf-klein">Passwort speichern</button>' +
+      '<button type="button" id="passwort-form-abbrechen" class="konto-link">Abbrechen</button>' +
       '<p class="konto-status" id="konto-fehler"></p>' +
     '</form>'
   );
@@ -941,6 +942,19 @@ function verdrahte() {
 
     if (e.target.id === 'konto-abmelden') {
       sb.auth.signOut();
+      return;
+    }
+
+    if (e.target.id === 'passwort-aendern') {
+      document.getElementById('app-inhalt').hidden = true;
+      document.getElementById('tor').hidden = false;
+      const platz = document.getElementById('konto-platz');
+      if (platz !== null) platz.innerHTML = wiederherstellungHtml();
+      return;
+    }
+
+    if (e.target.id === 'passwort-form-abbrechen') {
+      zeichneKonto();
       return;
     }
 

@@ -234,6 +234,7 @@ function wiederherstellungHtml() {
       '<p class="klein gedaempft">Придумайте новый пароль (минимум 6 символов).</p>' +
       '<input type="password" id="neues-passwort" class="konto-eingabe" placeholder="Новый пароль" minlength="6" autocomplete="new-password" required>' +
       '<button type="submit" class="knopf knopf-primaer knopf-klein">Сохранить пароль</button>' +
+      '<button type="button" id="passwort-form-abbrechen" class="konto-link">Отмена</button>' +
       '<p class="konto-status" id="konto-fehler"></p>' +
     '</form>'
   );
@@ -664,6 +665,19 @@ function verdrahte() {
 
     if (e.target.id === 'konto-abmelden') {
       sb.auth.signOut();
+      return;
+    }
+
+    if (e.target.id === 'passwort-aendern') {
+      document.getElementById('app-inhalt').hidden = true;
+      document.getElementById('tor').hidden = false;
+      const platz = document.getElementById('konto-platz');
+      if (platz !== null) platz.innerHTML = wiederherstellungHtml();
+      return;
+    }
+
+    if (e.target.id === 'passwort-form-abbrechen') {
+      zeichneKonto();
       return;
     }
 
