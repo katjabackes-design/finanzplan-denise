@@ -12,6 +12,11 @@
 
 const SCHLUESSEL = 'dohod-raschet-v1';
 
+// Nur diese eine Adresse darf sich hier anmelden. Das ist eine Höflichkeitssperre,
+// keine Sicherheitsgrenze — die eigentliche Absicherung ist Row-Level-Security in
+// Supabase: selbst mit einer fremden E-Mail sähe niemand die Daten der Mutter.
+const ERLAUBTE_EMAIL = 'katja.backes@posteo.ch';
+
 /* ── Конто (Supabase) — тот же проект, что и у Finanzplan Denise ─────────── */
 const SUPABASE_URL = 'https://kdlhplgrvehnccbzwiaj.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtkbGhwbGdydmVobmNjYnp3aWFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyMzg0OTcsImV4cCI6MjEwNDgxNDQ5N30.glfCkZ_PV7xzEefuLYyW9N6WR9ZKRpVd0SAk5YwOBj8';
@@ -615,6 +620,10 @@ function verdrahte() {
     const eingabe = document.getElementById('konto-email');
     const email = eingabe.value.trim();
     if (email === '') return;
+    if (email.toLowerCase() !== ERLAUBTE_EMAIL) {
+      e.target.innerHTML = '<span class="konto-status">Доступ есть только по одному определённому адресу.</span>';
+      return;
+    }
     const knopf = e.target.querySelector('button');
     knopf.disabled = true;
     knopf.textContent = 'Отправка …';
