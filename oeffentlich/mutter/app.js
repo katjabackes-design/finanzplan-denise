@@ -211,9 +211,28 @@ function torFormularHtml() {
   return (
     '<form class="konto-formular" id="konto-formular">' +
       '<input type="email" id="konto-email" class="konto-eingabe" placeholder="твоя@почта.ru" autocomplete="email" required>' +
-      '<button type="submit" class="knopf knopf-primaer knopf-klein">Отправить ссылку для входа</button>' +
+      '<input type="password" id="konto-passwort" class="konto-eingabe" placeholder="Пароль" autocomplete="current-password" minlength="6" required>' +
+      '<div style="display:flex; gap:8px">' +
+        '<button type="submit" data-aktion="anmelden" class="knopf knopf-primaer knopf-klein" style="flex:1">Войти</button>' +
+        '<button type="submit" data-aktion="registrieren" class="knopf knopf-umriss knopf-klein" style="flex:1">Регистрация</button>' +
+      '</div>' +
+      '<p class="konto-status" id="konto-fehler"></p>' +
     '</form>'
   );
+}
+
+function kontoFehlertext(error, aktion) {
+  const m = error.message || '';
+  if (m.includes('already registered') || m.includes('already exists')) {
+    return 'Этот адрес уже зарегистрирован — нажмите «Войти».';
+  }
+  if (m.includes('Invalid login credentials')) {
+    return 'Неверный e-mail или пароль.';
+  }
+  if (m.includes('Password') || m.includes('password')) {
+    return 'Пароль слишком короткий (минимум 6 символов).';
+  }
+  return aktion === 'registrieren' ? 'Регистрация не удалась.' : 'Вход не удался.';
 }
 
 function zeichneKonto() {
@@ -617,27 +636,40 @@ function verdrahte() {
   document.body.addEventListener('submit', async (e) => {
     if (e.target.id !== 'konto-formular') return;
     e.preventDefault();
-    const eingabe = document.getElementById('konto-email');
-    const email = eingabe.value.trim();
-    if (email === '') return;
+    const email = document.getElementById('konto-email').value.trim();
+    const passwort = document.getElementById('konto-passwort').value;
+    const fehlerfeld = document.getElementById('konto-fehler');
+    fehlerfeld.textContent = '';
+    if (email === '' || passwort === '') return;
     if (email.toLowerCase() !== ERLAUBTE_EMAIL) {
-      e.target.innerHTML = '<span class="konto-status">Доступ есть только по одному определённому адресу.</span>';
+      fehlerfeld.textContent = 'Доступ есть только по одному определённому адресу.';
       return;
     }
-    const knopf = e.target.querySelector('button');
-    knopf.disabled = true;
-    knopf.textContent = 'Отправка …';
-    const { error } = await sb.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: window.location.origin + window.location.pathname },
-    });
+
+    const aktion = e.submitter && e.submitter.dataset.aktion === 'registrieren' ? 'registrieren' : 'anmelden';
+    const knoepfe = e.target.querySelectorAll('button');
+    knoepfe.forEach((k) => { k.disabled = true; });
+    const aktivKnopf = e.submitter;
+    const textVorher = aktivKnopf.textContent;
+    aktivKnopf.textContent = aktion === 'registrieren' ? 'Регистрация …' : 'Вход …';
+
+    const { data, error } = aktion === 'registrieren'
+      ? await sb.auth.signUp({ email, password: passwort })
+      : await sb.auth.signInWithPassword({ email, password: passwort });
+
     if (error) {
       console.error(error);
-      knopf.disabled = false;
-      knopf.textContent = 'Не получилось — ещё раз?';
+      knoepfe.forEach((k) => { k.disabled = false; });
+      aktivKnopf.textContent = textVorher;
+      fehlerfeld.textContent = kontoFehlertext(error, aktion);
       return;
     }
-    e.target.innerHTML = '<span class="konto-status">Ссылка отправлена на ' + esc(email) + ' — проверьте почту.</span>';
+
+    // Bestätigungsmail nötig? Dann gibt es noch keine Sitzung — sonst
+    // übernimmt onAuthStateChange sofort und blendet das Tor aus.
+    if (aktion === 'registrieren' && data.session === null) {
+      e.target.innerHTML = '<span class="konto-status">Почти готово — подтвердите адрес по ссылке в письме, потом можно войти.</span>';
+    }
   });
 
   document.body.addEventListener('wheel', (e) => {
