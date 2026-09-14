@@ -25,6 +25,11 @@
   .kopfzeile { height: auto; flex-wrap: wrap; padding: 12px 24px; row-gap: 10px; }
   .kopfzeile-konto { flex-wrap: wrap; row-gap: 10px; }
 
+  /* Speicherstatus und E-Mail-Anzeige verwirren ohne Erklärung mehr, als sie
+     nützen — die Elemente bleiben im Code (falls doch mal gebraucht), sind
+     aber nicht mehr sichtbar. */
+  #stand, #konto-email-anzeige { display: none; }
+
   /* Sauberer Ausdruck über "Jetzt speichern & PDF" (Browser-Druckdialog,
      Ziel "Als PDF speichern"). */
   @media print {
