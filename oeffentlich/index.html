@@ -20,6 +20,18 @@
   .seminar th.rechts, .seminar td.rechts { text-align: left; }
   .fixkosten-liste { display: flex; flex-direction: column; gap: 14px; }
   .fixkosten-liste .feld { margin: 0; }
+
+  /* Die Kopfzeile hat jetzt mehr Bedienelemente als eine Zeile fasst. */
+  .kopfzeile { height: auto; flex-wrap: wrap; padding: 12px 24px; row-gap: 10px; }
+  .kopfzeile-konto { flex-wrap: wrap; row-gap: 10px; }
+
+  /* Sauberer Ausdruck über "Jetzt speichern & PDF" (Browser-Druckdialog,
+     Ziel "Als PDF speichern"). */
+  @media print {
+    #tor, .kopfzeile, footer { display: none !important; }
+    .karte, .kennzahl, .tabellenrahmen { box-shadow: none !important; break-inside: avoid; }
+    body { background: #fff !important; }
+  }
 </style>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><rect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%23D9502F%22/><text x=%2216%22 y=%2223%22 font-family=%22Georgia,serif%22 font-size=%2218%22 font-weight=%22700%22 fill=%22%23FBF8F3%22 text-anchor=%22middle%22>D</text></svg>" />
 </head>
@@ -31,7 +43,6 @@
       <span class="wortzeichen-mal" aria-hidden="true">D</span>
       <span>
         <span class="wortzeichen-name">FINANZPLAN</span>
-        <span class="wortzeichen-zusatz">Denise &middot; Meine Angebote</span>
       </span>
     </span>
     <p class="klein gedaempft" style="margin-top:14px">
@@ -49,22 +60,44 @@
     <span class="wortzeichen-mal" aria-hidden="true">D</span>
     <span>
       <span class="wortzeichen-name">FINANZPLAN</span>
-      <span class="wortzeichen-zusatz">Denise &middot; Meine Angebote</span>
     </span>
   </span>
 
   <div class="kopfzeile-konto">
-    <div class="segment" role="group" aria-label="Szenario">
-      <button type="button" class="segment-knopf" data-szenario="alle">Alle</button>
+    <div class="segment" role="group" aria-label="Zeitraum">
+      <select id="monat" class="konto-eingabe" style="width:auto; height:32px" aria-label="Monat">
+        <option value="1">Januar</option>
+        <option value="2">Februar</option>
+        <option value="3">März</option>
+        <option value="4">April</option>
+        <option value="5">Mai</option>
+        <option value="6">Juni</option>
+        <option value="7">Juli</option>
+        <option value="8">August</option>
+        <option value="9">September</option>
+        <option value="10">Oktober</option>
+        <option value="11">November</option>
+        <option value="12">Dezember</option>
+      </select>
+      <select id="jahr" class="konto-eingabe" style="width:auto; height:32px" aria-label="Jahr">
+        <option value="2025">2025</option>
+        <option value="2026">2026</option>
+        <option value="2027">2027</option>
+        <option value="2028">2028</option>
+      </select>
+    </div>
+    <div class="segment" role="group" aria-label="Szenarien (Mehrfachauswahl)">
+      <button type="button" class="segment-knopf" data-szenario-alle="1">Alle</button>
       <button type="button" class="segment-knopf" data-szenario="min">min</button>
       <button type="button" class="segment-knopf" data-szenario="norm">norm</button>
       <button type="button" class="segment-knopf" data-szenario="max">max</button>
+      <button type="button" class="segment-knopf" data-szenario="sonder">Sonderpreise</button>
     </div>
     <span class="abzeichen abzeichen-neutral" id="stand">gespeichert</span>
     <span class="abzeichen abzeichen-gut" id="konto-email-anzeige" title="Angemeldet"></span>
     <button type="button" class="knopf knopf-umriss knopf-klein" id="passwort-aendern">Passwort ändern</button>
     <button type="button" class="knopf knopf-umriss knopf-klein" id="konto-abmelden">Abmelden</button>
-    <button type="button" class="knopf knopf-umriss knopf-klein" id="jetzt-speichern">Jetzt speichern</button>
+    <button type="button" class="knopf knopf-umriss knopf-klein" id="jetzt-speichern">Jetzt speichern &amp; PDF</button>
     <button type="button" class="knopf knopf-umriss knopf-klein" id="zuruecksetzen">Zurücksetzen</button>
   </div>
 </header>
@@ -72,19 +105,6 @@
 <main class="inhalt">
 
   <section class="abschnitt" style="--verzug:0">
-    <div class="karte karte-schmal">
-      <div class="karte-kopf">
-        <div>
-          <h2>Fixkosten pro Monat</h2>
-          <p class="klein gedaempft">Laufende Ausgaben, unabhängig vom Umsatz</p>
-        </div>
-      </div>
-      <div id="fixkosten" class="fixkosten-liste"></div>
-      <p class="klein" style="margin-top:14px"><strong>Fixkosten gesamt:</strong> <span id="fixkosten-summe"></span></p>
-    </div>
-  </section>
-
-  <section class="abschnitt" style="--verzug:0.5">
     <div class="kennzahlen" id="kennzahlen"></div>
   </section>
 
@@ -128,6 +148,30 @@
       </div>
 
       <dl class="stammdaten stammdaten-zwei" id="eckwerte"></dl>
+    </div>
+  </section>
+
+  <section class="abschnitt raster-zwei" style="--verzug:1.5">
+    <div class="karte karte-schmal">
+      <div class="karte-kopf">
+        <div>
+          <h2>Fixkosten pro Monat</h2>
+          <p class="klein gedaempft">Laufende Ausgaben, unabhängig vom Umsatz</p>
+        </div>
+      </div>
+      <div id="fixkosten" class="fixkosten-liste"></div>
+      <p class="klein" style="margin-top:14px"><strong>Fixkosten gesamt:</strong> <span id="fixkosten-summe"></span></p>
+    </div>
+
+    <div class="karte karte-schmal">
+      <div class="karte-kopf">
+        <div>
+          <h2>Verwaltungsstunden pro Monat</h2>
+          <p class="klein gedaempft">Buchhaltung, Marketing, Strategie &mdash; geht von der Kapazität ab</p>
+        </div>
+      </div>
+      <div id="fixzeit" class="fixkosten-liste"></div>
+      <p class="klein" style="margin-top:14px"><strong>Verwaltungsstunden gesamt:</strong> <span id="fixzeit-summe"></span></p>
     </div>
   </section>
 

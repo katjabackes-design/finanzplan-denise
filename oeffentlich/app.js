@@ -29,8 +29,10 @@ let konto = null;
 
 function vorgabe() {
   return {
-    szenario: 'norm',
+    szenarien: ['norm'],
     mass: 'monat',
+    monat: new Date().getMonth() + 1,
+    jahr: new Date().getFullYear(),
     wochenProMonat: 4,
     zielUmsatz: 8000,
     kapazitaet: 20,
@@ -38,6 +40,12 @@ function vorgabe() {
       { id: 'fk1', name: 'Marketing', betrag: 0 },
       { id: 'fk2', name: 'Buchhaltung', betrag: 0 },
       { id: 'fk3', name: 'Sonstiges', betrag: 0 },
+    ],
+    fixzeit: [
+      { id: 'fz1', name: 'Buchhaltung', stunden: 0 },
+      { id: 'fz2', name: 'Marketing', stunden: 0 },
+      { id: 'fz3', name: 'Strategie', stunden: 0 },
+      { id: 'fz4', name: 'Sonstiges', stunden: 0 },
     ],
     bloecke: [
       {
@@ -196,6 +204,54 @@ function vorgabe() {
           { id: 'ag3', name: 'max',  szenario: 'max',  aktiv: true, c: 0, d: 0, e: 0, f: 0, j: 0 },
         ],
       },
+      {
+        id: 'onlinekurs1',
+        titel: 'Onlinekurs 1',
+        zusatz: 'Preis pro Teilnehmer:in',
+        art: 'sitzung',
+        zeilen: [
+          { id: 'ok1a', name: 'min',  szenario: 'min',  aktiv: true, c: 0, e: 0, g: 0, j: 0 },
+          { id: 'ok1b', name: 'norm', szenario: 'norm', aktiv: true, c: 0, e: 0, g: 0, j: 0 },
+          { id: 'ok1c', name: 'max',  szenario: 'max',  aktiv: true, c: 0, e: 0, g: 0, j: 0 },
+        ],
+      },
+      {
+        id: 'onlinekurs2',
+        titel: 'Onlinekurs 2',
+        zusatz: 'Preis pro Teilnehmer:in',
+        art: 'sitzung',
+        zeilen: [
+          { id: 'ok2a', name: 'min',  szenario: 'min',  aktiv: true, c: 0, e: 0, g: 0, j: 0 },
+          { id: 'ok2b', name: 'norm', szenario: 'norm', aktiv: true, c: 0, e: 0, g: 0, j: 0 },
+          { id: 'ok2c', name: 'max',  szenario: 'max',  aktiv: true, c: 0, e: 0, g: 0, j: 0 },
+        ],
+      },
+      {
+        id: 'neuesAngebot1',
+        titel: 'Neues Angebot — 1:1',
+        zusatz: 'Paketpreis über die Laufzeit',
+        art: 'paket',
+        gruppe: false,
+        laufzeit: 1,
+        zeilen: [
+          { id: 'na1a', name: 'min',  szenario: 'min',  aktiv: true, c: 0, e: 0, f: 0, j: 0 },
+          { id: 'na1b', name: 'norm', szenario: 'norm', aktiv: true, c: 0, e: 0, f: 0, j: 0 },
+          { id: 'na1c', name: 'max',  szenario: 'max',  aktiv: true, c: 0, e: 0, f: 0, j: 0 },
+        ],
+      },
+      {
+        id: 'neuesAngebot2',
+        titel: 'Neues Angebot — Gruppe',
+        zusatz: 'Im Gruppensetting · Paketpreis pro Person',
+        art: 'paket',
+        gruppe: true,
+        laufzeit: 1,
+        zeilen: [
+          { id: 'na2a', name: 'min',  szenario: 'min',  aktiv: true, c: 0, d: 0, e: 0, f: 0, j: 0 },
+          { id: 'na2b', name: 'norm', szenario: 'norm', aktiv: true, c: 0, d: 0, e: 0, f: 0, j: 0 },
+          { id: 'na2c', name: 'max',  szenario: 'max',  aktiv: true, c: 0, d: 0, e: 0, f: 0, j: 0 },
+        ],
+      },
     ],
   };
 }
@@ -261,10 +317,9 @@ function summiere(teile) {
 }
 
 /** Zählt eine Zeile ins Total? Zwei Bedingungen: angehakt und im Szenario. */
-function zaehlt(zeile, szenario) {
+function zaehlt(zeile, szenarien) {
   if (zeile.aktiv !== true) return false;
-  if (szenario === 'alle') return true;
-  return zeile.szenario === szenario;
+  return szenarien.includes(zeile.szenario);
 }
 
 /* ── Formate ────────────────────────────────────────────────────────────── */
@@ -300,8 +355,15 @@ function verschmelze(frisch, gespeichert) {
   if (gespeichert === null || gespeichert === undefined) return frisch;
 
   // Verschmelzen statt ersetzen: eine ältere Fassung darf keine Blöcke schlucken.
-  frisch.szenario = gespeichert.szenario ?? frisch.szenario;
+  if (Array.isArray(gespeichert.szenarien)) {
+    frisch.szenarien = gespeichert.szenarien;
+  } else if (typeof gespeichert.szenario === 'string') {
+    // Alte Fassung vor der Mehrfachauswahl: 'alle' -> alle vier, sonst ein Wert.
+    frisch.szenarien = gespeichert.szenario === 'alle' ? ['min', 'norm', 'max', 'sonder'] : [gespeichert.szenario];
+  }
   frisch.mass = gespeichert.mass ?? frisch.mass;
+  frisch.monat = gespeichert.monat ?? frisch.monat;
+  frisch.jahr = gespeichert.jahr ?? frisch.jahr;
   frisch.wochenProMonat = gespeichert.wochenProMonat ?? frisch.wochenProMonat;
   frisch.zielUmsatz = gespeichert.zielUmsatz ?? frisch.zielUmsatz;
   frisch.kapazitaet = gespeichert.kapazitaet ?? frisch.kapazitaet;
@@ -309,6 +371,11 @@ function verschmelze(frisch, gespeichert) {
   for (const posten of frisch.fixkosten) {
     const alt = (gespeichert.fixkosten ?? []).find((f) => f.id === posten.id);
     if (alt !== undefined && typeof alt.betrag === 'number') posten.betrag = alt.betrag;
+  }
+
+  for (const posten of frisch.fixzeit) {
+    const alt = (gespeichert.fixzeit ?? []).find((f) => f.id === posten.id);
+    if (alt !== undefined && typeof alt.stunden === 'number') posten.stunden = alt.stunden;
   }
 
   for (const block of frisch.bloecke) {
@@ -681,6 +748,19 @@ function fixkostenHtml() {
     .join('');
 }
 
+function fixzeitHtml() {
+  return zustand.fixzeit
+    .map(
+      (f) =>
+        '<label class="feld">' +
+          '<span class="feld-beschriftung">' + esc(f.name) + '</span>' +
+          '<input type="number" inputmode="decimal" min="0" step="1" value="' + f.stunden +
+          '" data-fixzeit="' + f.id + '" aria-label="' + esc(f.name) + '">' +
+        '</label>',
+    )
+    .join('');
+}
+
 /* ── Kennzahlen und Diagramm ────────────────────────────────────────────── */
 
 function kennzahlenHtml() {
@@ -715,7 +795,7 @@ function zeichneDiagramm() {
   const reihen = zustand.bloecke
     .map((block) => {
       const teile = block.zeilen
-        .filter((z) => zaehlt(z, zustand.szenario))
+        .filter((z) => zaehlt(z, zustand.szenarien))
         .map((z) => rechne(block, z, zustand.wochenProMonat));
       return { name: block.titel + (block.zusatz ? ' · ' + block.zusatz.split(' · ')[0] : ''), ergebnis: summiere(teile) };
     })
@@ -777,7 +857,7 @@ function aktualisiere() {
     for (const zeile of block.zeilen) {
       vorhanden += 1;
       const e = rechne(block, zeile, w);
-      const zaehltMit = zaehlt(zeile, zustand.szenario);
+      const zaehltMit = zaehlt(zeile, zustand.szenarien);
       if (zaehltMit) {
         gezaehlt += 1;
         blockTeile.push(e);
@@ -817,7 +897,7 @@ function aktualisiere() {
   document.querySelector('[data-aus="kSatz"]').innerHTML =
     satz(total.stundensatz) + '<span class="kennzahl-einheit">CHF</span>';
 
-  const szenarioWort = zustand.szenario === 'alle' ? 'alle Szenarien' : 'Szenario ' + zustand.szenario;
+  const szenarioWort = zustand.szenarien.length === 0 ? 'keine Auswahl' : zustand.szenarien.join(' + ');
   setze('kUmsatzMonat.zusatz', geld(total.umsatzWoche) + ' pro Woche · ' + szenarioWort);
   setze('kUmsatzJahr.zusatz', '12 × Monatsumsatz');
   setze('kStunden.zusatz', std(total.stundenMonat) + ' Std. pro Monat');
@@ -837,21 +917,26 @@ function aktualisiere() {
       : '<span class="abzeichen abzeichen-' + zielStufe + '">' + Math.round(zielAnteil * 100) + '&nbsp;% erreicht</span> ' +
         'Es fehlen ' + geld(luecke) + ' CHF pro Monat.';
 
-  /* Kapazität */
-  const auslastung = zustand.kapazitaet > 0 ? total.stundenWoche / zustand.kapazitaet : 0;
+  /* Fixkosten & Verwaltungsstunden */
+  const fixkostenSumme = zustand.fixkosten.reduce((s, f) => s + (f.betrag || 0), 0);
+  document.getElementById('fixkosten-summe').textContent = geld(fixkostenSumme) + ' CHF / Monat';
+  const fixzeitSumme = zustand.fixzeit.reduce((s, f) => s + (f.stunden || 0), 0);
+  document.getElementById('fixzeit-summe').textContent = std(fixzeitSumme) + ' Std. / Monat';
+  const fixzeitWoche = fixzeitSumme / w;
+
+  /* Kapazität — Kundenarbeit plus Verwaltungsstunden zusammen gegen die Kapazität */
+  const belegteStunden = total.stundenWoche + fixzeitWoche;
+  const auslastung = zustand.kapazitaet > 0 ? belegteStunden / zustand.kapazitaet : 0;
   const kapStufe = stufe(auslastung, true);
   const kapBalken = document.getElementById('kapazitaet-balken');
   kapBalken.style.width = Math.min(100, auslastung * 100) + '%';
   kapBalken.parentElement.className = 'messbalken messbalken-' + kapStufe;
   document.getElementById('kapazitaet-wert').textContent = std(zustand.kapazitaet) + ' Std.';
-  const rest = zustand.kapazitaet - total.stundenWoche;
+  const rest = zustand.kapazitaet - belegteStunden;
   document.getElementById('kapazitaet-text').innerHTML =
     '<span class="abzeichen abzeichen-' + kapStufe + '">' + Math.round(auslastung * 100) + '&nbsp;% ausgelastet</span> ' +
+    '(' + std(fixzeitWoche) + ' Std./Woche davon Verwaltung) ' +
     (rest >= 0 ? std(rest) + ' Std. pro Woche frei.' : std(-rest) + ' Std. pro Woche über der Kapazität.');
-
-  /* Fixkosten */
-  const fixkostenSumme = zustand.fixkosten.reduce((s, f) => s + (f.betrag || 0), 0);
-  document.getElementById('fixkosten-summe').textContent = geld(fixkostenSumme) + ' CHF / Monat';
 
   /* Eckwerte */
   document.getElementById('eckwerte').innerHTML =
@@ -859,7 +944,8 @@ function aktualisiere() {
     '<div><dt>Arbeitsstunden pro Monat</dt><dd>' + std(total.stundenMonat) + ' Std.</dd></div>' +
     '<div><dt>Umsatz pro Arbeitstag</dt><dd>' + geld(total.umsatzWoche / 5) + ' CHF</dd></div>' +
     '<div><dt>Gezählte Zeilen</dt><dd>' + gezaehlt + ' / ' + vorhanden + '</dd></div>' +
-    '<div><dt>Netto-Umsatz pro Monat (nach Fixkosten)</dt><dd>' + geld(total.umsatzMonat - fixkostenSumme) + ' CHF</dd></div>';
+    '<div><dt>Netto-Umsatz pro Monat (nach Fixkosten)</dt><dd>' + geld(total.umsatzMonat - fixkostenSumme) + ' CHF</dd></div>' +
+    '<div><dt>Verwaltungsstunden pro Woche</dt><dd>' + std(fixzeitWoche) + ' Std.</dd></div>';
 
   zeichneDiagramm();
 }
@@ -876,8 +962,15 @@ function findeZeile(id) {
 
 function zeichne() {
   document.getElementById('fixkosten').innerHTML = fixkostenHtml();
+  document.getElementById('fixzeit').innerHTML = fixzeitHtml();
   document.getElementById('kennzahlen').innerHTML = kennzahlenHtml();
-  document.getElementById('bloecke').innerHTML = zustand.bloecke.map(blockHtml).join('');
+
+  // Befüllte Angebote nach oben, unbefüllte ("noch nicht geplant") nach unten —
+  // stabile Sortierung erhält die Reihenfolge innerhalb jeder Gruppe.
+  const sortierteBloecke = [...zustand.bloecke].sort(
+    (a, b) => Number(blockLeer(a)) - Number(blockLeer(b)),
+  );
+  document.getElementById('bloecke').innerHTML = sortierteBloecke.map(blockHtml).join('');
 
   for (const k of Object.keys(aus)) delete aus[k];
   document.querySelectorAll('[data-aus]').forEach((knoten) => { aus[knoten.dataset.aus] = knoten; });
@@ -885,9 +978,11 @@ function zeichne() {
   document.getElementById('ziel').value = String(zustand.zielUmsatz);
   document.getElementById('kapazitaet').value = String(zustand.kapazitaet);
   document.getElementById('wochen').value = String(zustand.wochenProMonat);
+  document.getElementById('monat').value = String(zustand.monat);
+  document.getElementById('jahr').value = String(zustand.jahr);
 
   document.querySelectorAll('[data-szenario]').forEach((knopf) => {
-    knopf.setAttribute('aria-pressed', String(knopf.dataset.szenario === zustand.szenario));
+    knopf.setAttribute('aria-pressed', String(zustand.szenarien.includes(knopf.dataset.szenario)));
   });
   document.querySelectorAll('[data-mass]').forEach((knopf) => {
     knopf.setAttribute('aria-pressed', String(knopf.dataset.mass === zustand.mass));
@@ -924,6 +1019,16 @@ function verdrahte() {
       return;
     }
 
+    if (ziel.dataset.fixzeit !== undefined) {
+      const posten = zustand.fixzeit.find((f) => f.id === ziel.dataset.fixzeit);
+      if (posten === undefined) return;
+      const wert = Number.parseFloat(ziel.value);
+      posten.stunden = Number.isFinite(wert) && wert >= 0 ? wert : 0;
+      aktualisiere();
+      speichern();
+      return;
+    }
+
     if (ziel.dataset.laufzeit !== undefined) {
       const block = zustand.bloecke.find((b) => b.id === ziel.dataset.laufzeit);
       const wert = Number.parseFloat(ziel.value);
@@ -944,6 +1049,9 @@ function verdrahte() {
   });
 
   document.body.addEventListener('change', (e) => {
+    if (e.target.id === 'monat') { zustand.monat = Number(e.target.value); speichern(); return; }
+    if (e.target.id === 'jahr') { zustand.jahr = Number(e.target.value); speichern(); return; }
+
     const id = e.target.dataset.schalter;
     if (id === undefined) return;
     const zeile = findeZeile(id);
@@ -953,14 +1061,26 @@ function verdrahte() {
     speichern();
   });
 
-  document.body.addEventListener('click', (e) => {
+  document.body.addEventListener('click', async (e) => {
+    const alleKnopf = e.target.closest('[data-szenario-alle]');
+    if (alleKnopf !== null) {
+      zustand.szenarien = ['min', 'norm', 'max', 'sonder'];
+      document.querySelectorAll('[data-szenario]').forEach((k) => {
+        k.setAttribute('aria-pressed', String(zustand.szenarien.includes(k.dataset.szenario)));
+      });
+      aktualisiere();
+      speichern();
+      return;
+    }
+
     const knopf = e.target.closest('[data-szenario], [data-mass]');
     if (knopf !== null) {
       if (knopf.dataset.szenario !== undefined) {
-        zustand.szenario = knopf.dataset.szenario;
-        document.querySelectorAll('[data-szenario]').forEach((k) => {
-          k.setAttribute('aria-pressed', String(k.dataset.szenario === zustand.szenario));
-        });
+        // Mehrfachauswahl: jeder Knopf schaltet sich selbst ein/aus.
+        const s = knopf.dataset.szenario;
+        const i = zustand.szenarien.indexOf(s);
+        if (i === -1) zustand.szenarien.push(s); else zustand.szenarien.splice(i, 1);
+        knopf.setAttribute('aria-pressed', String(zustand.szenarien.includes(s)));
       } else {
         zustand.mass = knopf.dataset.mass;
         document.querySelectorAll('[data-mass]').forEach((k) => {
@@ -998,7 +1118,8 @@ function verdrahte() {
 
     if (e.target.id === 'jetzt-speichern') {
       clearTimeout(speicherUhr);
-      speichernJetzt();
+      await speichernJetzt();
+      window.print();
       return;
     }
 
