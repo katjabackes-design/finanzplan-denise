@@ -1,8 +1,12 @@
 /*
- * Расчёт дохода — рудиментарная версия на основе «доход расчет.xlsx»,
- * лист «расчет услуг». Формула унифицирована для всех блоков (доход =
- * стоимость × человек × раз в месяц; часов = раз в месяц × время) —
- * в оригинале у йоги было особое /4*3, здесь его нет по договорённости.
+ * Расчёт дохода — реальные предложения и цены (октябрь 2026), источник:
+ * «!дело/дело, статистика.xlsx» (актуальные цены) и «!дело/База клиентов
+ * ТД.xlsx» (объём программы ТД). Формула единая для всех блоков (доход =
+ * цена × человек × раз в месяц; часов = раз в месяц × время).
+ *
+ * Объёмы (раз в месяц, количество человек) — оценочные, подставлены по
+ * имеющимся данным о частоте занятий; подправь под себя прямо в таблице,
+ * каждое поле редактируется сразу.
  *
  * Архитектура 1:1 как в Finanzplan Denise: zeichne() строит разметку один
  * раз, aktualisiere() потом только переписывает ячейки результатов.
@@ -31,39 +35,71 @@ function vorgabe() {
     kapazitaet: 20,
     bloecke: [
       {
-        id: 'yoga', titel: 'йога занятие', zusatz: 'групповое занятие · цена за занятие',
+        id: 'yogaStudio', titel: 'Йога — группа, студия', zusatz: 'цена за занятие с человека · ~4 занятия/нед.',
         zeilen: [
-          { id: 'y1', name: 'норм', szenario: 'norm', aktiv: true, c: 5,  e: 8,  g: 25, j: 2 },
-          { id: 'y2', name: 'мин',  szenario: 'min',  aktiv: true, c: 3,  e: 4,  g: 20, j: 2 },
-          { id: 'y3', name: 'мах',  szenario: 'max',  aktiv: true, c: 10, e: 12, g: 30, j: 2 },
+          { id: 'ys1', name: 'норм', szenario: 'norm', aktiv: true, c: 6,  e: 16, g: 30, j: 2 },
+          { id: 'ys2', name: 'мин',  szenario: 'min',  aktiv: true, c: 4,  e: 12, g: 25, j: 2 },
+          { id: 'ys3', name: 'мах',  szenario: 'max',  aktiv: true, c: 10, e: 16, g: 30, j: 2 },
         ],
       },
       {
-        id: 'gvozdi', titel: 'гвозди', zusatz: 'цена за клиента',
+        id: 'yogaVyezd', titel: 'Йога — группа, на выезде', zusatz: 'цена за занятие с человека · ~3–4 занятия/нед.',
         zeilen: [
-          { id: 'g1', name: 'норм', szenario: 'norm', aktiv: true, c: 5,  e: 1, g: 65, j: 3 },
-          { id: 'g2', name: 'мин',  szenario: 'min',  aktiv: true, c: 3,  e: 1, g: 60, j: 3 },
-          { id: 'g3', name: 'мах',  szenario: 'max',  aktiv: true, c: 10, e: 2, g: 70, j: 3 },
+          { id: 'yv1', name: 'норм', szenario: 'norm', aktiv: true, c: 6,  e: 14, g: 30, j: 2 },
+          { id: 'yv2', name: 'мин',  szenario: 'min',  aktiv: true, c: 4,  e: 12, g: 25, j: 2 },
+          { id: 'yv3', name: 'мах',  szenario: 'max',  aktiv: true, c: 10, e: 16, g: 30, j: 2 },
         ],
       },
       {
-        id: 'vyezd', titel: 'на выезде', zusatz: 'цена за клиента',
+        id: 'yogaIndividual', titel: 'Йога — индивидуально', zusatz: 'цена за занятие, 1 час',
         zeilen: [
-          { id: 'v1', name: 'норм', szenario: 'norm', aktiv: true, c: 10, e: 1, g: 90, j: 7 },
-          { id: 'v2', name: 'мин',  szenario: 'min',  aktiv: true, c: 5,  e: 1, g: 70, j: 7 },
-          { id: 'v3', name: 'мах',  szenario: 'max',  aktiv: true, c: 15, e: 1, g: 90, j: 7 },
+          { id: 'yi1', name: 'норм', szenario: 'norm', aktiv: true, c: 1, e: 8,  g: 120, j: 1 },
+          { id: 'yi2', name: 'мин',  szenario: 'min',  aktiv: true, c: 1, e: 4,  g: 100, j: 1 },
+          { id: 'yi3', name: 'мах',  szenario: 'max',  aktiv: true, c: 1, e: 16, g: 120, j: 1 },
         ],
       },
       {
-        id: 'vstrechi', titel: 'встречи', zusatz: 'цена за клиента',
+        id: 'yogaPartner', titel: 'Йога парная', zusatz: 'цена за занятие, 90 мин · новое предложение',
         zeilen: [
-          { id: 't1', name: 'норм', szenario: 'norm', aktiv: true, c: 5,  e: 1, g: 40, j: 3 },
-          { id: 't2', name: 'мин',  szenario: 'min',  aktiv: true, c: 3,  e: 1, g: 20, j: 3 },
-          { id: 't3', name: 'мах',  szenario: 'max',  aktiv: true, c: 10, e: 1, g: 60, j: 3 },
+          { id: 'yp1', name: 'норм', szenario: 'norm', aktiv: true, c: 1, e: 2, g: 170, j: 1.5 },
+          { id: 'yp2', name: 'мин',  szenario: 'min',  aktiv: true, c: 1, e: 1, g: 170, j: 1.5 },
+          { id: 'yp3', name: 'мах',  szenario: 'max',  aktiv: true, c: 1, e: 4, g: 170, j: 1.5 },
         ],
       },
       {
-        id: 'konsultacii', titel: 'консультации', zusatz: 'цена за консультацию',
+        id: 'gvozdiGroup', titel: 'Гвоздестояние — группа', zusatz: 'цена за занятие с человека',
+        zeilen: [
+          { id: 'gg1', name: 'норм', szenario: 'norm', aktiv: true, c: 5,  e: 1, g: 70, j: 3 },
+          { id: 'gg2', name: 'мин',  szenario: 'min',  aktiv: true, c: 3,  e: 1, g: 60, j: 3 },
+          { id: 'gg3', name: 'мах',  szenario: 'max',  aktiv: true, c: 10, e: 2, g: 70, j: 3 },
+        ],
+      },
+      {
+        id: 'gvozdiIndividual', titel: 'Гвоздестояние — индивидуально', zusatz: 'цена за занятие, 1 час',
+        zeilen: [
+          { id: 'gi1', name: 'норм', szenario: 'norm', aktiv: true, c: 1, e: 4, g: 150, j: 1 },
+          { id: 'gi2', name: 'мин',  szenario: 'min',  aktiv: true, c: 1, e: 2, g: 150, j: 1 },
+          { id: 'gi3', name: 'мах',  szenario: 'max',  aktiv: true, c: 1, e: 8, g: 150, j: 1 },
+        ],
+      },
+      {
+        id: 'soprovozhdenie', titel: 'Сопровождение (коучинг)', zusatz: 'пакет 6 встреч за 1500 · цена за встречу',
+        zeilen: [
+          { id: 'sp1', name: 'норм', szenario: 'norm', aktiv: true, c: 3, e: 2, g: 250, j: 1.5 },
+          { id: 'sp2', name: 'мин',  szenario: 'min',  aktiv: true, c: 1, e: 2, g: 250, j: 1.5 },
+          { id: 'sp3', name: 'мах',  szenario: 'max',  aktiv: true, c: 6, e: 2, g: 250, j: 1.5 },
+        ],
+      },
+      {
+        id: 'td', titel: 'Программа ТД', zusatz: 'пакет 3 встречи за 90–150 · цена за встречу',
+        zeilen: [
+          { id: 'td1', name: 'норм', szenario: 'norm', aktiv: true, c: 8,  e: 2, g: 40, j: 1 },
+          { id: 'td2', name: 'мин',  szenario: 'min',  aktiv: true, c: 4,  e: 1, g: 30, j: 1 },
+          { id: 'td3', name: 'мах',  szenario: 'max',  aktiv: true, c: 15, e: 3, g: 50, j: 1 },
+        ],
+      },
+      {
+        id: 'konsultacii', titel: 'Консультации', zusatz: 'цена за консультацию',
         zeilen: [
           { id: 'k1', name: 'норм', szenario: 'norm', aktiv: true, c: 1, e: 10, g: 120, j: 2 },
           { id: 'k2', name: 'мин',  szenario: 'min',  aktiv: true, c: 1, e: 10, g: 70,  j: 2 },
@@ -71,11 +107,11 @@ function vorgabe() {
         ],
       },
       {
-        id: 'mm', titel: 'мм', zusatz: 'цена за занятие',
+        id: 'drugoe', titel: 'Другое / новое предложение', zusatz: 'свободный блок · заполни по необходимости',
         zeilen: [
-          { id: 'm1', name: 'норм', szenario: 'norm', aktiv: true, c: 5,  e: 4, g: 50, j: 2 },
-          { id: 'm2', name: 'мин',  szenario: 'min',  aktiv: true, c: 4,  e: 4, g: 30, j: 2 },
-          { id: 'm3', name: 'мах',  szenario: 'max',  aktiv: true, c: 10, e: 4, g: 80, j: 2 },
+          { id: 'dr1', name: 'норм', szenario: 'norm', aktiv: true, c: 0, e: 0, g: 0, j: 0 },
+          { id: 'dr2', name: 'мин',  szenario: 'min',  aktiv: true, c: 0, e: 0, g: 0, j: 0 },
+          { id: 'dr3', name: 'мах',  szenario: 'max',  aktiv: true, c: 0, e: 0, g: 0, j: 0 },
         ],
       },
     ],
