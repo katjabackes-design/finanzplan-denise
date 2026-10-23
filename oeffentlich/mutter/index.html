@@ -11,6 +11,48 @@
 <style>
   /* Eigener Farbton nur für diese Seite — dunkles Braun statt Fastschwarz. */
   :root { --primaer: #5b3a29; --primaer-gedrueckt: #43291d; }
+
+  /* Fünf Kennzahlenkarten statt vier — auf breiten Bildschirmen eine Spalte
+     mehr, damit keine Karte allein in der letzten Zeile hängt. Mobile
+     Zweispaltigkeit aus stil.css bleibt unberührt (Media Query dort). */
+  @media (min-width: 1081px) {
+    .kennzahlen { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  }
+
+  /* Reihenfolge der Blöcke per Pfeiltasten verschieben. */
+  .block-reorder { display: flex; flex-direction: column; gap: 2px; margin-right: 4px; }
+  .knopf-reorder {
+    width: 22px; height: 18px;
+    border: 1px solid var(--rand-bedienelement);
+    border-radius: 4px;
+    background: var(--flaeche);
+    font-size: 10px;
+    line-height: 1;
+    cursor: pointer;
+  }
+  .knopf-reorder:hover { background: var(--flaeche-gedaempft); }
+  .knopf-reorder:disabled { opacity: 0.3; cursor: default; }
+
+  /* Издержки блока: аренда, материалы, проезд и т.п. */
+  .izderzhki { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--linie); }
+  .izderzhki-zeile { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+  .izderzhki-name {
+    flex: 1; height: 32px; padding: 0 10px;
+    border: 1px solid var(--rand-bedienelement); border-radius: var(--radius-klein);
+    background: var(--flaeche); font-size: 13px;
+  }
+  .izderzhki-betrag {
+    width: 90px; height: 32px; padding: 0 8px;
+    border: 1px solid var(--rand-bedienelement); border-radius: var(--radius-klein);
+    background: var(--flaeche); font-size: 13px; text-align: right;
+  }
+  .izderzhki-entfernen {
+    width: 28px; height: 28px;
+    border: none; background: transparent;
+    color: var(--text-gedaempft); font-size: 16px; cursor: pointer; border-radius: var(--radius-klein);
+  }
+  .izderzhki-entfernen:hover { background: var(--flaeche-gedaempft); color: var(--status-kritisch); }
+  .izderzhki-hinzufuegen { margin-top: 4px; }
 </style>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><rect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%235B3A29%22/><text x=%2216%22 y=%2223%22 font-family=%22Georgia,serif%22 font-size=%2218%22 font-weight=%22700%22 fill=%22%23FBF8F3%22 text-anchor=%22middle%22>Р</text></svg>" />
 </head>
@@ -103,6 +145,11 @@
         <div class="messbalken"><span id="kapazitaet-balken"></span></div>
         <p class="klein" id="kapazitaet-text"></p>
       </div>
+
+      <label class="feld" style="margin-top:4px">
+        <span class="feld-beschriftung">Налог, % от прибыли (после издержек)</span>
+        <input type="number" id="nalog" min="0" max="100" step="0.5" />
+      </label>
 
       <dl class="stammdaten stammdaten-zwei" id="eckwerte"></dl>
     </div>

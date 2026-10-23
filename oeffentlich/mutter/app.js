@@ -1,12 +1,15 @@
 /*
- * Расчёт дохода — реальные предложения и цены (октябрь 2026), источник:
- * «!дело/дело, статистика.xlsx» (актуальные цены) и «!дело/База клиентов
- * ТД.xlsx» (объём программы ТД). Формула единая для всех блоков (доход =
- * цена × человек × раз в месяц; часов = раз в месяц × время).
+ * Расчёт дохода — реальные предложения и цены (октябрь 2026).
  *
- * Объёмы (раз в месяц, количество человек) — оценочные, подставлены по
- * имеющимся данным о частоте занятий; подправь под себя прямо в таблице,
- * каждое поле редактируется сразу.
+ * Три формы расчёта (block.art):
+ *   'sitzung' — разовое/повторяющееся занятие: доход = человек × раз в месяц × цена.
+ *   'godovoe' — годовое сопровождение: доход/мес = клиентов × цена за год / 12.
+ *   'retreat' — ретрит: доход/мес = участников × ночей × цена за ночь × раз в год / 12.
+ *
+ * Издержки (аренда, материалы, проезд...) считаются по блоку, а не по строке
+ * сценария — аренда не зависит от того, мин или мах сценарий сейчас выбран.
+ * Порядок блоков — часть состояния: кнопки ▲▼ двигают блок и порядок
+ * сохраняется (verschmelze переносит порядок из сохранённых данных).
  *
  * Архитектура 1:1 как в Finanzplan Denise: zeichne() строит разметку один
  * раз, aktualisiere() потом только переписывает ячейки результатов.
@@ -27,15 +30,25 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let konto = null;
 
+function osnovnyeIzderzhki() {
+  return [
+    { id: 'arenda', name: 'Аренда', betrag: 0 },
+    { id: 'material', name: 'Материалы', betrag: 0 },
+    { id: 'proezd', name: 'Проезд', betrag: 0 },
+  ];
+}
+
 function vorgabe() {
   return {
     szenario: 'norm',
     wochenProMonat: 4,
     zielUmsatz: 5000,
     kapazitaet: 20,
+    nalogProzent: 0,
     bloecke: [
       {
-        id: 'yogaStudio', titel: 'Йога — группа, студия', zusatz: 'цена за занятие с человека · ~4 занятия/нед.',
+        id: 'yogaStudio', titel: 'Йога — группа, студия', art: 'sitzung',
+        izderzhki: osnovnyeIzderzhki(),
         zeilen: [
           { id: 'ys1', name: 'норм', szenario: 'norm', aktiv: true, c: 6,  e: 16, g: 30, j: 2 },
           { id: 'ys2', name: 'мин',  szenario: 'min',  aktiv: true, c: 4,  e: 12, g: 25, j: 2 },
@@ -43,7 +56,8 @@ function vorgabe() {
         ],
       },
       {
-        id: 'yogaVyezd', titel: 'Йога — группа, на выезде', zusatz: 'цена за занятие с человека · ~3–4 занятия/нед.',
+        id: 'yogaVyezd', titel: 'Йога — группа, на выезде', art: 'sitzung',
+        izderzhki: osnovnyeIzderzhki(),
         zeilen: [
           { id: 'yv1', name: 'норм', szenario: 'norm', aktiv: true, c: 6,  e: 14, g: 30, j: 2 },
           { id: 'yv2', name: 'мин',  szenario: 'min',  aktiv: true, c: 4,  e: 12, g: 25, j: 2 },
@@ -51,15 +65,8 @@ function vorgabe() {
         ],
       },
       {
-        id: 'yogaIndividual', titel: 'Йога — индивидуально', zusatz: 'цена за занятие, 1 час',
-        zeilen: [
-          { id: 'yi1', name: 'норм', szenario: 'norm', aktiv: true, c: 1, e: 8,  g: 120, j: 1 },
-          { id: 'yi2', name: 'мин',  szenario: 'min',  aktiv: true, c: 1, e: 4,  g: 100, j: 1 },
-          { id: 'yi3', name: 'мах',  szenario: 'max',  aktiv: true, c: 1, e: 16, g: 120, j: 1 },
-        ],
-      },
-      {
-        id: 'yogaPartner', titel: 'Йога парная', zusatz: 'цена за занятие, 90 мин · новое предложение',
+        id: 'yogaPartner', titel: 'Йога парная', art: 'sitzung',
+        izderzhki: osnovnyeIzderzhki(),
         zeilen: [
           { id: 'yp1', name: 'норм', szenario: 'norm', aktiv: true, c: 1, e: 2, g: 170, j: 1.5 },
           { id: 'yp2', name: 'мин',  szenario: 'min',  aktiv: true, c: 1, e: 1, g: 170, j: 1.5 },
@@ -67,7 +74,8 @@ function vorgabe() {
         ],
       },
       {
-        id: 'gvozdiGroup', titel: 'Гвоздестояние — группа', zusatz: 'цена за занятие с человека',
+        id: 'gvozdiGroup', titel: 'Гвоздестояние — группа', art: 'sitzung',
+        izderzhki: osnovnyeIzderzhki(),
         zeilen: [
           { id: 'gg1', name: 'норм', szenario: 'norm', aktiv: true, c: 5,  e: 1, g: 70, j: 3 },
           { id: 'gg2', name: 'мин',  szenario: 'min',  aktiv: true, c: 3,  e: 1, g: 60, j: 3 },
@@ -75,7 +83,8 @@ function vorgabe() {
         ],
       },
       {
-        id: 'gvozdiIndividual', titel: 'Гвоздестояние — индивидуально', zusatz: 'цена за занятие, 1 час',
+        id: 'gvozdiIndividual', titel: 'Гвоздестояние — индивидуально', art: 'sitzung',
+        izderzhki: osnovnyeIzderzhki(),
         zeilen: [
           { id: 'gi1', name: 'норм', szenario: 'norm', aktiv: true, c: 1, e: 4, g: 150, j: 1 },
           { id: 'gi2', name: 'мин',  szenario: 'min',  aktiv: true, c: 1, e: 2, g: 150, j: 1 },
@@ -83,31 +92,44 @@ function vorgabe() {
         ],
       },
       {
-        id: 'soprovozhdenie', titel: 'Сопровождение (коучинг)', zusatz: 'пакет 6 встреч за 1500 · цена за встречу',
+        id: 'konsultaciiSoprovozhdenie', titel: 'Консультации / сопровождение', art: 'sitzung',
+        izderzhki: osnovnyeIzderzhki(),
         zeilen: [
-          { id: 'sp1', name: 'норм', szenario: 'norm', aktiv: true, c: 3, e: 2, g: 250, j: 1.5 },
-          { id: 'sp2', name: 'мин',  szenario: 'min',  aktiv: true, c: 1, e: 2, g: 250, j: 1.5 },
-          { id: 'sp3', name: 'мах',  szenario: 'max',  aktiv: true, c: 6, e: 2, g: 250, j: 1.5 },
+          { id: 'ks1', name: 'норм', szenario: 'norm', aktiv: true, c: 1, e: 10, g: 150, j: 1.5 },
+          { id: 'ks2', name: 'мин',  szenario: 'min',  aktiv: true, c: 1, e: 5,  g: 100, j: 1.5 },
+          { id: 'ks3', name: 'мах',  szenario: 'max',  aktiv: true, c: 1, e: 20, g: 300, j: 1.5 },
         ],
       },
       {
-        id: 'td', titel: 'Программа ТД', zusatz: 'пакет 3 встречи за 90–150 · цена за встречу',
+        id: 'godovoe', titel: 'Годовое сопровождение', art: 'godovoe',
+        izderzhki: osnovnyeIzderzhki(),
         zeilen: [
-          { id: 'td1', name: 'норм', szenario: 'norm', aktiv: true, c: 8,  e: 2, g: 40, j: 1 },
-          { id: 'td2', name: 'мин',  szenario: 'min',  aktiv: true, c: 4,  e: 1, g: 30, j: 1 },
-          { id: 'td3', name: 'мах',  szenario: 'max',  aktiv: true, c: 15, e: 3, g: 50, j: 1 },
+          { id: 'gd1', name: 'норм', szenario: 'norm', aktiv: true, c: 1, f: 0, e: 1, j: 1.5 },
+          { id: 'gd2', name: 'мин',  szenario: 'min',  aktiv: true, c: 1, f: 0, e: 1, j: 1.5 },
+          { id: 'gd3', name: 'мах',  szenario: 'max',  aktiv: true, c: 1, f: 0, e: 1, j: 1.5 },
         ],
       },
       {
-        id: 'konsultacii', titel: 'Консультации', zusatz: 'цена за консультацию',
+        id: 'resursnyiAromat', titel: 'Ресурсный аромат', art: 'sitzung',
+        izderzhki: osnovnyeIzderzhki(),
         zeilen: [
-          { id: 'k1', name: 'норм', szenario: 'norm', aktiv: true, c: 1, e: 10, g: 120, j: 2 },
-          { id: 'k2', name: 'мин',  szenario: 'min',  aktiv: true, c: 1, e: 10, g: 70,  j: 2 },
-          { id: 'k3', name: 'мах',  szenario: 'max',  aktiv: true, c: 1, e: 20, g: 300, j: 2 },
+          { id: 'ra1', name: 'норм', szenario: 'norm', aktiv: true, c: 0, e: 0, g: 0, j: 0 },
+          { id: 'ra2', name: 'мин',  szenario: 'min',  aktiv: true, c: 0, e: 0, g: 0, j: 0 },
+          { id: 'ra3', name: 'мах',  szenario: 'max',  aktiv: true, c: 0, e: 0, g: 0, j: 0 },
         ],
       },
       {
-        id: 'drugoe', titel: 'Другое / новое предложение', zusatz: 'свободный блок · заполни по необходимости',
+        id: 'retreat', titel: 'Ретрит', art: 'retreat',
+        izderzhki: osnovnyeIzderzhki(),
+        zeilen: [
+          { id: 'rt1', name: 'норм', szenario: 'norm', aktiv: true, c: 0, n: 0, g: 0, j: 0, e: 0 },
+          { id: 'rt2', name: 'мин',  szenario: 'min',  aktiv: true, c: 0, n: 0, g: 0, j: 0, e: 0 },
+          { id: 'rt3', name: 'мах',  szenario: 'max',  aktiv: true, c: 0, n: 0, g: 0, j: 0, e: 0 },
+        ],
+      },
+      {
+        id: 'drugoe', titel: 'Другое / новое предложение', art: 'sitzung',
+        izderzhki: osnovnyeIzderzhki(),
         zeilen: [
           { id: 'dr1', name: 'норм', szenario: 'norm', aktiv: true, c: 0, e: 0, g: 0, j: 0 },
           { id: 'dr2', name: 'мин',  szenario: 'min',  aktiv: true, c: 0, e: 0, g: 0, j: 0 },
@@ -120,9 +142,21 @@ function vorgabe() {
 
 /* ── Расчёт ─────────────────────────────────────────────────────────────── */
 
-function rechne(z, wochen) {
-  const umsatzMonat = z.c * z.e * z.g;
-  const stundenMonat = z.e * z.j;
+function rechne(block, z, wochen) {
+  let umsatzMonat = 0;
+  let stundenMonat = 0;
+
+  if (block.art === 'godovoe') {
+    umsatzMonat = (z.c * z.f) / 12;
+    stundenMonat = z.c * z.e * z.j;
+  } else if (block.art === 'retreat') {
+    umsatzMonat = (z.c * z.n * z.g * z.e) / 12;
+    stundenMonat = (z.n * z.j * z.e) / 12;
+  } else {
+    umsatzMonat = z.c * z.e * z.g;
+    stundenMonat = z.e * z.j;
+  }
+
   const w = wochen > 0 ? wochen : 1;
   return {
     umsatzWoche: umsatzMonat / w,
@@ -161,6 +195,10 @@ function zaehlt(zeile, szenario) {
   return zeile.szenario === szenario;
 }
 
+function izderzhkiSumme(block) {
+  return (block.izderzhki ?? []).reduce((s, i) => s + (i.betrag || 0), 0);
+}
+
 /* ── Форматы ────────────────────────────────────────────────────────────── */
 
 const fGeld = new Intl.NumberFormat('de-CH', { maximumFractionDigits: 0 });
@@ -197,19 +235,34 @@ function verschmelze(frisch, gespeichert) {
   frisch.wochenProMonat = gespeichert.wochenProMonat ?? frisch.wochenProMonat;
   frisch.zielUmsatz = gespeichert.zielUmsatz ?? frisch.zielUmsatz;
   frisch.kapazitaet = gespeichert.kapazitaet ?? frisch.kapazitaet;
+  frisch.nalogProzent = gespeichert.nalogProzent ?? frisch.nalogProzent;
 
   for (const block of frisch.bloecke) {
     const alt = (gespeichert.bloecke ?? []).find((b) => b.id === block.id);
     if (alt === undefined) continue;
+    if (Array.isArray(alt.izderzhki)) block.izderzhki = alt.izderzhki;
     for (const zeile of block.zeilen) {
       const altZ = (alt.zeilen ?? []).find((z) => z.id === zeile.id);
       if (altZ === undefined) continue;
-      for (const k of ['c', 'e', 'g', 'j']) {
+      for (const k of Object.keys(altZ)) {
         if (typeof altZ[k] === 'number') zeile[k] = altZ[k];
       }
       if (typeof altZ.aktiv === 'boolean') zeile.aktiv = altZ.aktiv;
     }
   }
+
+  // Reihenfolge aus den gespeicherten Daten übernehmen (Pfeiltasten ▲▼
+  // verschieben Blöcke — ohne das hier würde jedes Neuladen die
+  // Reihenfolge wieder auf die Vorgabe zurücksetzen).
+  if (Array.isArray(gespeichert.bloecke)) {
+    const reihenfolge = gespeichert.bloecke.map((b) => b.id);
+    frisch.bloecke.sort((a, b) => {
+      const ia = reihenfolge.indexOf(a.id);
+      const ib = reihenfolge.indexOf(b.id);
+      return (ia === -1 ? Infinity : ia) - (ib === -1 ? Infinity : ib);
+    });
+  }
+
   return frisch;
 }
 
@@ -347,12 +400,31 @@ async function initKonto() {
 
 /* ── Разметка ───────────────────────────────────────────────────────────── */
 
-const FELDER = [
-  { k: 'c', titel: 'Человек', schritt: '1' },
-  { k: 'e', titel: 'Раз в<br>месяц', schritt: '1' },
-  { k: 'g', titel: 'Стоимость', schritt: '5' },
-  { k: 'j', titel: 'Время<br>час.', schritt: '0.5' },
-];
+const FELDER = {
+  sitzung: [
+    { k: 'c', titel: 'Человек', schritt: '1' },
+    { k: 'e', titel: 'Раз в<br>месяц', schritt: '1' },
+    { k: 'g', titel: 'Стоимость', schritt: '5' },
+    { k: 'j', titel: 'Время<br>час.', schritt: '0.5' },
+  ],
+  godovoe: [
+    { k: 'c', titel: 'Клиентов', schritt: '1' },
+    { k: 'f', titel: 'Цена<br>за год', schritt: '50' },
+    { k: 'e', titel: 'Встреч в<br>месяц', schritt: '1' },
+    { k: 'j', titel: 'Час/<br>встреча', schritt: '0.5' },
+  ],
+  retreat: [
+    { k: 'c', titel: 'Участников', schritt: '1' },
+    { k: 'n', titel: 'Ночей', schritt: '1' },
+    { k: 'g', titel: 'Цена/ночь<br>с человека', schritt: '10' },
+    { k: 'j', titel: 'Часов<br>в день', schritt: '0.5' },
+    { k: 'e', titel: 'Раз в<br>год', schritt: '1' },
+  ],
+};
+
+function felderFuer(block) {
+  return FELDER[block.art] ?? FELDER.sitzung;
+}
 
 const ERGEBNISSE = [
   { k: 'umsatzWoche', titel: 'Доход<br>в неделю', form: geld },
@@ -384,10 +456,11 @@ function eingabeHtml(zeile, feld) {
 }
 
 function tabellenBlockHtml(block) {
-  const spalten = 1 + FELDER.length;
+  const felder = felderFuer(block);
+  const spalten = 1 + felder.length;
 
   let kopf = '<tr><th>Вариант</th>';
-  FELDER.forEach((f) => { kopf += '<th class="rechts">' + f.titel + '</th>'; });
+  felder.forEach((f) => { kopf += '<th class="rechts">' + f.titel + '</th>'; });
   ERGEBNISSE.forEach((e, i) => {
     kopf += '<th class="rechts' + (i === 0 ? ' grenze' : '') + '">' + e.titel + '</th>';
   });
@@ -398,7 +471,7 @@ function tabellenBlockHtml(block) {
     koerper += '<tr data-reihe="' + zeile.id + '">';
     koerper += '<td><span class="variante">' + schalterHtml(zeile) +
       '<span class="variantenname">' + esc(zeile.name) + '</span></span></td>';
-    FELDER.forEach((f) => { koerper += eingabeHtml(zeile, f); });
+    felder.forEach((f) => { koerper += eingabeHtml(zeile, f); });
     ERGEBNISSE.forEach((e, i) => {
       koerper += '<td class="ergebnis' + (i === 0 ? ' grenze' : '') + (e.stark ? ' stark' : '') +
         '" data-aus="' + zeile.id + '.' + e.k + '"></td>';
@@ -414,19 +487,46 @@ function tabellenBlockHtml(block) {
 
   return (
     '<div class="tabellenrahmen"><div class="tabellenlauf"><table class="tabelle">' +
-    '<caption class="nur-vorlesen">' + esc(block.titel + ' — ' + block.zusatz) + '</caption>' +
+    '<caption class="nur-vorlesen">' + esc(block.titel) + '</caption>' +
     '<thead>' + kopf + '</thead><tbody>' + koerper + '</tbody><tfoot>' + fuss + '</tfoot>' +
     '</table></div></div>'
   );
 }
 
-function blockHtml(block) {
+function izderzhkiHtml(block) {
+  const zeilen = (block.izderzhki ?? [])
+    .map(
+      (i) =>
+        '<div class="izderzhki-zeile">' +
+          '<input class="izderzhki-name" type="text" value="' + esc(i.name) +
+          '" data-izderzhki-blok="' + block.id + '" data-izderzhki-id="' + i.id + '" data-izderzhki-feld="name" aria-label="Название издержки">' +
+          '<input class="izderzhki-betrag" type="number" inputmode="decimal" min="0" step="10" value="' + i.betrag +
+          '" data-izderzhki-blok="' + block.id + '" data-izderzhki-id="' + i.id + '" data-izderzhki-feld="betrag" aria-label="Сумма издержки">' +
+          '<button type="button" class="izderzhki-entfernen" data-izderzhki-entfernen-blok="' + block.id + '" data-izderzhki-entfernen-id="' + i.id + '" aria-label="Удалить издержку">×</button>' +
+        '</div>',
+    )
+    .join('');
+
+  return (
+    '<div class="izderzhki">' +
+      '<p class="klein gedaempft" style="margin-bottom:8px">Издержки блока</p>' +
+      zeilen +
+      '<button type="button" class="izderzhki-hinzufuegen konto-link" data-izderzhki-add="' + block.id + '">+ добавить издержку</button>' +
+      '<p class="klein" style="margin-top:8px"><strong>Издержки блока:</strong> <span data-aus="' + block.id + '.izderzhkiSumme"></span></p>' +
+    '</div>'
+  );
+}
+
+function blockHtml(block, indeks, vsego) {
   return (
     '<article class="karte">' +
       '<div class="block-kopf">' +
-        '<div>' +
+        '<div style="display:flex; align-items:center; gap:10px">' +
+          '<div class="block-reorder">' +
+            '<button type="button" class="knopf-reorder" data-podnyat="' + block.id + '"' + (indeks === 0 ? ' disabled' : '') + ' aria-label="Поднять выше">▲</button>' +
+            '<button type="button" class="knopf-reorder" data-opustit="' + block.id + '"' + (indeks === vsego - 1 ? ' disabled' : '') + ' aria-label="Опустить ниже">▼</button>' +
+          '</div>' +
           '<div class="block-titelzeile"><h3>' + esc(block.titel) + '</h3></div>' +
-          '<p class="klein gedaempft" style="margin-top:4px">' + esc(block.zusatz) + '</p>' +
         '</div>' +
         '<div class="block-summe">' +
           '<span class="block-summe-wert" data-aus="' + block.id + '.kopfsumme"></span>' +
@@ -434,6 +534,7 @@ function blockHtml(block) {
         '</div>' +
       '</div>' +
       tabellenBlockHtml(block) +
+      izderzhkiHtml(block) +
     '</article>'
   );
 }
@@ -443,6 +544,7 @@ function blockHtml(block) {
 function kennzahlenHtml() {
   const karten = [
     { id: 'kUmsatzMonat', name: 'Доход в месяц', einheit: 'CHF', hero: true },
+    { id: 'kChistyi', name: 'Чистый доход (после налога и издержек)', einheit: 'CHF' },
     { id: 'kUmsatzJahr', name: 'Доход в год', einheit: 'CHF' },
     { id: 'kStunden', name: 'Часов в неделю', einheit: 'ч.' },
     { id: 'kSatz', name: 'Средняя цена часа', einheit: 'CHF' },
@@ -475,7 +577,7 @@ function zeichneDiagramm() {
     .map((block) => {
       const teile = block.zeilen
         .filter((z) => zaehlt(z, zustand.szenario))
-        .map((z) => rechne(z, zustand.wochenProMonat));
+        .map((z) => rechne(block, z, zustand.wochenProMonat));
       return { name: block.titel, ergebnis: summiere(teile) };
     })
     .map((r) => ({ name: r.name, wert: m.wert(r.ergebnis) }))
@@ -529,12 +631,13 @@ function aktualisiere() {
   const gesamtTeile = [];
   let gezaehlt = 0;
   let vorhanden = 0;
+  let izderzhkiVsego = 0;
 
   for (const block of zustand.bloecke) {
     const blockTeile = [];
     for (const zeile of block.zeilen) {
       vorhanden += 1;
-      const e = rechne(zeile, w);
+      const e = rechne(block, zeile, w);
       const zaehltMit = zaehlt(zeile, zustand.szenario);
       if (zaehltMit) {
         gezaehlt += 1;
@@ -551,9 +654,16 @@ function aktualisiere() {
     const summe = summiere(blockTeile);
     ERGEBNISSE.forEach((sp) => setze(block.id + '.summe.' + sp.k, blockTeile.length === 0 ? '—' : sp.form(summe[sp.k])));
     setze(block.id + '.kopfsumme', geld(summe.umsatzMonat));
+
+    const blockIzderzhki = izderzhkiSumme(block);
+    izderzhkiVsego += blockIzderzhki;
+    setze(block.id + '.izderzhkiSumme', geld(blockIzderzhki) + ' CHF / мес');
   }
 
   const total = summiere(gesamtTeile);
+  const pribylDoNaloga = total.umsatzMonat - izderzhkiVsego;
+  const nalog = zustand.nalogProzent > 0 ? pribylDoNaloga * (zustand.nalogProzent / 100) : 0;
+  const chistyiDohod = pribylDoNaloga - nalog;
 
   document.querySelector('[data-aus="kUmsatzMonat"]').innerHTML =
     geld(total.umsatzMonat) + '<span class="kennzahl-einheit">CHF</span>';
@@ -563,12 +673,15 @@ function aktualisiere() {
     std(total.stundenWoche) + '<span class="kennzahl-einheit">ч.</span>';
   document.querySelector('[data-aus="kSatz"]').innerHTML =
     satz(total.stundensatz) + '<span class="kennzahl-einheit">CHF</span>';
+  document.querySelector('[data-aus="kChistyi"]').innerHTML =
+    geld(chistyiDohod) + '<span class="kennzahl-einheit">CHF</span>';
 
   const szenarioWort = zustand.szenario === 'alle' ? 'все сценарии' : 'сценарий ' + zustand.szenario;
   setze('kUmsatzMonat.zusatz', geld(total.umsatzWoche) + ' в неделю · ' + szenarioWort);
   setze('kUmsatzJahr.zusatz', '12 × доход в месяц');
   setze('kStunden.zusatz', std(total.stundenMonat) + ' ч. в месяц');
   setze('kSatz.zusatz', gezaehlt + ' из ' + vorhanden + ' строк учтено');
+  setze('kChistyi.zusatz', 'издержки ' + geld(izderzhkiVsego) + ' + налог ' + zustand.nalogProzent + '% от прибыли');
 
   /* Цель */
   const zielAnteil = zustand.zielUmsatz > 0 ? total.umsatzMonat / zustand.zielUmsatz : 1;
@@ -601,7 +714,9 @@ function aktualisiere() {
     '<div><dt>Доход в неделю</dt><dd>' + geld(total.umsatzWoche) + ' CHF</dd></div>' +
     '<div><dt>Часов в месяц</dt><dd>' + std(total.stundenMonat) + ' ч.</dd></div>' +
     '<div><dt>Доход за рабочий день</dt><dd>' + geld(total.umsatzWoche / 5) + ' CHF</dd></div>' +
-    '<div><dt>Учтено строк</dt><dd>' + gezaehlt + ' / ' + vorhanden + '</dd></div>';
+    '<div><dt>Учтено строк</dt><dd>' + gezaehlt + ' / ' + vorhanden + '</dd></div>' +
+    '<div><dt>Издержки всего</dt><dd>' + geld(izderzhkiVsego) + ' CHF / мес</dd></div>' +
+    '<div><dt>Чистый доход</dt><dd>' + geld(chistyiDohod) + ' CHF / мес</dd></div>';
 
   zeichneDiagramm();
 }
@@ -616,9 +731,15 @@ function findeZeile(id) {
   return null;
 }
 
+function findeBlock(id) {
+  return zustand.bloecke.find((b) => b.id === id);
+}
+
 function zeichne() {
   document.getElementById('kennzahlen').innerHTML = kennzahlenHtml();
-  document.getElementById('bloecke').innerHTML = zustand.bloecke.map(blockHtml).join('');
+  document.getElementById('bloecke').innerHTML = zustand.bloecke
+    .map((block, i) => blockHtml(block, i, zustand.bloecke.length))
+    .join('');
 
   for (const k of Object.keys(aus)) delete aus[k];
   document.querySelectorAll('[data-aus]').forEach((knoten) => { aus[knoten.dataset.aus] = knoten; });
@@ -626,6 +747,7 @@ function zeichne() {
   document.getElementById('ziel').value = String(zustand.zielUmsatz);
   document.getElementById('kapazitaet').value = String(zustand.kapazitaet);
   document.getElementById('wochen').value = String(zustand.wochenProMonat);
+  document.getElementById('nalog').value = String(zustand.nalogProzent);
 
   document.querySelectorAll('[data-szenario]').forEach((knopf) => {
     knopf.setAttribute('aria-pressed', String(knopf.dataset.szenario === zustand.szenario));
@@ -633,6 +755,17 @@ function zeichne() {
   document.querySelectorAll('[data-mass]').forEach((knopf) => {
     knopf.setAttribute('aria-pressed', String(knopf.dataset.mass === mass));
   });
+}
+
+function peredvinutBlok(id, naprav) {
+  const i = zustand.bloecke.findIndex((b) => b.id === id);
+  const j = i + naprav;
+  if (i === -1 || j < 0 || j >= zustand.bloecke.length) return;
+  const [blok] = zustand.bloecke.splice(i, 1);
+  zustand.bloecke.splice(j, 0, blok);
+  zeichne();
+  aktualisiere();
+  speichern();
 }
 
 function verdrahte() {
@@ -651,8 +784,31 @@ function verdrahte() {
       return;
     }
 
+    if (ziel.dataset.izderzhkiBlok !== undefined) {
+      const block = findeBlock(ziel.dataset.izderzhkiBlok);
+      if (block === undefined) return;
+      const posten = (block.izderzhki ?? []).find((i) => i.id === ziel.dataset.izderzhkiId);
+      if (posten === undefined) return;
+      if (ziel.dataset.izderzhkiFeld === 'name') {
+        posten.name = ziel.value;
+      } else {
+        const wert = Number.parseFloat(ziel.value);
+        posten.betrag = Number.isFinite(wert) && wert >= 0 ? wert : 0;
+      }
+      aktualisiere();
+      speichern();
+      return;
+    }
+
     if (ziel.id === 'ziel') { zustand.zielUmsatz = Number(ziel.value); aktualisiere(); speichern(); return; }
     if (ziel.id === 'kapazitaet') { zustand.kapazitaet = Number(ziel.value); aktualisiere(); speichern(); return; }
+    if (ziel.id === 'nalog') {
+      const wert = Number.parseFloat(ziel.value);
+      zustand.nalogProzent = Number.isFinite(wert) && wert >= 0 ? wert : 0;
+      aktualisiere();
+      speichern();
+      return;
+    }
     if (ziel.id === 'wochen') {
       const wert = Number.parseFloat(ziel.value);
       zustand.wochenProMonat = Number.isFinite(wert) && wert > 0 ? wert : 4;
@@ -672,6 +828,41 @@ function verdrahte() {
   });
 
   document.body.addEventListener('click', (e) => {
+    const podnyat = e.target.closest('[data-podnyat]');
+    if (podnyat !== null) { peredvinutBlok(podnyat.dataset.podnyat, -1); return; }
+
+    const opustit = e.target.closest('[data-opustit]');
+    if (opustit !== null) { peredvinutBlok(opustit.dataset.opustit, 1); return; }
+
+    const add = e.target.closest('[data-izderzhki-add]');
+    if (add !== null) {
+      const block = findeBlock(add.dataset.izderzhkiAdd);
+      if (block !== undefined) {
+        if (!Array.isArray(block.izderzhki)) block.izderzhki = [];
+        block.izderzhki.push({
+          id: 'izd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+          name: 'Новое',
+          betrag: 0,
+        });
+        zeichne();
+        aktualisiere();
+        speichern();
+      }
+      return;
+    }
+
+    const entfernen = e.target.closest('[data-izderzhki-entfernen-blok]');
+    if (entfernen !== null) {
+      const block = findeBlock(entfernen.dataset.izderzhkiEntfernenBlok);
+      if (block !== undefined && Array.isArray(block.izderzhki)) {
+        block.izderzhki = block.izderzhki.filter((i) => i.id !== entfernen.dataset.izderzhkiEntfernenId);
+        zeichne();
+        aktualisiere();
+        speichern();
+      }
+      return;
+    }
+
     const knopf = e.target.closest('[data-szenario], [data-mass]');
     if (knopf !== null) {
       if (knopf.dataset.szenario !== undefined) {
