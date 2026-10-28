@@ -842,6 +842,14 @@ function peredvinutVKrai(id, kuda) {
 }
 
 function verdrahte() {
+  // Клик/таб на числовое поле выделяет его содержимое целиком — чтобы
+  // напечатать значение вместо 0, не нужно сперва стирать этот 0 вручную.
+  document.body.addEventListener('focusin', (e) => {
+    if (e.target.tagName === 'INPUT' && e.target.type === 'number') {
+      e.target.select();
+    }
+  });
+
   document.body.addEventListener('input', (e) => {
     const ziel = e.target;
 
