@@ -122,9 +122,9 @@ function vorgabe() {
         id: 'retreat', titel: 'Ретрит', art: 'retreat',
         izderzhki: osnovnyeIzderzhki(),
         zeilen: [
-          { id: 'rt1', name: 'норм', szenario: 'norm', aktiv: true, c: 0, n: 0, g: 0, j: 0, e: 0 },
-          { id: 'rt2', name: 'мин',  szenario: 'min',  aktiv: true, c: 0, n: 0, g: 0, j: 0, e: 0 },
-          { id: 'rt3', name: 'мах',  szenario: 'max',  aktiv: true, c: 0, n: 0, g: 0, j: 0, e: 0 },
+          { id: 'rt1', name: 'норм', szenario: 'norm', aktiv: true, c: 0, n: 0, g: 0, j: 0, t: 0, e: 0 },
+          { id: 'rt2', name: 'мин',  szenario: 'min',  aktiv: true, c: 0, n: 0, g: 0, j: 0, t: 0, e: 0 },
+          { id: 'rt3', name: 'мах',  szenario: 'max',  aktiv: true, c: 0, n: 0, g: 0, j: 0, t: 0, e: 0 },
         ],
       },
       {
@@ -142,6 +142,12 @@ function vorgabe() {
 
 /* ── Расчёт ─────────────────────────────────────────────────────────────── */
 
+// Время в таблице вводится нетто (чистое время занятия/встречи). Часы в
+// результатах — брутто: для сессий ('sitzung') накидывается 30% на подготовку,
+// переходы и администрирование; для воркшопов/ретритов ('retreat') к времени
+// на месте прибавляется дорога (вводится отдельно, в часах за поездку).
+const NAKIDKA_SESSII = 1.3;
+
 function rechne(block, z, wochen) {
   let umsatzMonat = 0;
   let stundenMonat = 0;
@@ -151,10 +157,10 @@ function rechne(block, z, wochen) {
     stundenMonat = z.c * z.e * z.j;
   } else if (block.art === 'retreat') {
     umsatzMonat = (z.c * z.n * z.g * z.e) / 12;
-    stundenMonat = (z.n * z.j * z.e) / 12;
+    stundenMonat = ((z.n * z.j + (z.t || 0)) * z.e) / 12;
   } else {
     umsatzMonat = z.c * z.e * z.g;
-    stundenMonat = z.e * z.j;
+    stundenMonat = z.e * z.j * NAKIDKA_SESSII;
   }
 
   const w = wochen > 0 ? wochen : 1;
@@ -405,7 +411,7 @@ const FELDER = {
     { k: 'c', titel: 'Человек', schritt: '1' },
     { k: 'e', titel: 'Раз в<br>месяц', schritt: '1' },
     { k: 'g', titel: 'Стоимость', schritt: '5' },
-    { k: 'j', titel: 'Время<br>час.', schritt: '0.5' },
+    { k: 'j', titel: 'Время нетто<br>час.', schritt: '0.5' },
   ],
   godovoe: [
     { k: 'c', titel: 'Клиентов', schritt: '1' },
@@ -418,6 +424,7 @@ const FELDER = {
     { k: 'n', titel: 'Ночей', schritt: '1' },
     { k: 'g', titel: 'Цена/ночь<br>с человека', schritt: '10' },
     { k: 'j', titel: 'Часов<br>в день', schritt: '0.5' },
+    { k: 't', titel: 'Дорога<br>час. за поездку', schritt: '0.5' },
     { k: 'e', titel: 'Раз в<br>год', schritt: '1' },
   ],
 };
