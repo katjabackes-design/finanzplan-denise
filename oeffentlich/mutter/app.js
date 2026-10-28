@@ -1,5 +1,5 @@
 /*
- * Расчёт дохода — реальные предложения и цены (октябрь 2026).
+ * Расчёт дохода — реальные предложения и цены.
  *
  * Шесть форм расчёта (block.art):
  *   'sitzung'    — групповое занятие: доход = человек × раз в месяц × цена.
@@ -198,14 +198,22 @@ function rechne(block, z, wochen) {
   // Издержки на участников — отдельно от фиксированных издержек блока
   // (аренда и т.п.): зависят от сценария, т.к. растут вместе с доходом.
   let izderzhkiUchastnikov = 0;
+  // "Цена часа" — ставка за час ОДНОГО человека/клиента. У групповых форм
+  // доход растёт вместе с числом участников, а часы ведущего — нет, поэтому
+  // "доход / часы" дало бы цену, растущую вместе с размером группы. Здесь
+  // она считается отдельно и размера группы не видит.
+  let stundensatz = null;
 
   if (block.art === 'godovoe') {
     umsatzMonat = (z.c * z.f) / 12;
     stundenMonat = z.c * z.e * z.j;
+    stundensatz = z.e > 0 && z.j > 0 ? z.f / (12 * z.e * z.j) : null;
   } else if (block.art === 'retreat') {
     umsatzMonat = (z.c * z.n * z.g * z.e) / 12;
-    stundenMonat = ((z.j + (z.t || 0)) * z.e) / 12;
+    const chasyNaMeste = z.j + (z.t || 0);
+    stundenMonat = (chasyNaMeste * z.e) / 12;
     izderzhkiUchastnikov = (z.c * (z.i || 0) * z.e) / 12;
+    stundensatz = chasyNaMeste > 0 ? (z.n * z.g) / chasyNaMeste : null;
   } else if (block.art === 'individual') {
     // 1:1 — "раз в месяц" уже означает число сессий, умножать ещё и на
     // количество человек в сессии здесь не на что: оно всегда одно. Без
@@ -213,12 +221,14 @@ function rechne(block, z, wochen) {
     // участниками, как у групповых занятий.
     umsatzMonat = z.e * z.g;
     stundenMonat = z.e * z.j;
+    stundensatz = z.j > 0 ? z.g / z.j : null;
   } else if (block.art === 'paket') {
     // Пакет продаётся целиком за фиксированную цену — доход не зависит от
     // того, сколько консультаций внутри; а вот часы зависят напрямую. Без
     // надбавки 30% — пакет тоже состоит из консультаций 1:1.
     umsatzMonat = z.c * z.f;
     stundenMonat = z.c * z.n * z.j;
+    stundensatz = z.n > 0 && z.j > 0 ? z.f / (z.n * z.j) : null;
   } else if (block.art === 'gruppa') {
     // Групповое мероприятие: цена и издержки считаются на человека и
     // умножаются на размер группы; продолжительность — одна на всё
@@ -226,12 +236,14 @@ function rechne(block, z, wochen) {
     umsatzMonat = z.c * z.g * z.e;
     stundenMonat = z.j * z.e;
     izderzhkiUchastnikov = z.c * (z.i || 0) * z.e;
+    stundensatz = z.j > 0 ? z.g / z.j : null;
   } else {
     // Групповая сессия: доход считается с каждого из c участников отдельно,
     // а часы — нет, ведущий тратит на занятие столько же времени независимо
     // от размера группы.
     umsatzMonat = z.c * z.e * z.g;
     stundenMonat = z.e * z.j * NAKIDKA_SESSII;
+    stundensatz = z.j > 0 ? z.g / (z.j * NAKIDKA_SESSII) : null;
   }
 
   const w = wochen > 0 ? wochen : 1;
@@ -241,7 +253,7 @@ function rechne(block, z, wochen) {
     umsatzJahr: umsatzMonat * 12,
     stundenWoche: stundenMonat / w,
     stundenMonat,
-    stundensatz: stundenMonat > 0 ? umsatzMonat / stundenMonat : null,
+    stundensatz,
     izderzhkiUchastnikov,
   };
 }
