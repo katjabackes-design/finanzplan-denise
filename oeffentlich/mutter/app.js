@@ -1,13 +1,16 @@
 /*
  * Расчёт дохода — реальные предложения и цены (октябрь 2026).
  *
- * Пять форм расчёта (block.art):
+ * Шесть форм расчёта (block.art):
  *   'sitzung'    — групповое занятие: доход = человек × раз в месяц × цена.
  *   'individual' — услуга 1:1 (без поля "Человек" — его нечем наполнить):
  *                  доход = раз в месяц × цена.
  *   'paket'      — пакет консультаций по фиксированной цене: доход/мес =
  *                  пакетов в месяц × цена за пакет; часы зависят от числа
  *                  консультаций в пакете.
+ *   'gruppa'     — групповое мероприятие: доход = человек в группе × раз в
+ *                  месяц × цена для 1 участника; часы — только за счёт раз
+ *                  в месяц, продолжительность не растёт от числа участников.
  *   'godovoe'    — годовое сопровождение: доход/мес = клиентов × стоимость
  *                  годовой программы / 12.
  *   'retreat'    — ретрит: доход/мес = участников × ночей × цена за ночь ×
@@ -15,8 +18,10 @@
  *                  × раз в год / 12 — за весь ретрит целиком, не умножаются
  *                  на число ночей.
  *
- * Издержки (аренда, материалы, проезд...) считаются по блоку, а не по строке
- * сценария — аренда не зависит от того, мин или мах сценарий сейчас выбран.
+ * Издержки на блок бывают двух видов: фиксированные (аренда, материалы,
+ * проезд — свой список на блок, не зависят от сценария) и на участников
+ * (поле "Издержки на 1 участника" у 'gruppa' и 'retreat' — умножаются на
+ * размер группы и растут вместе с доходом по сценарию).
  * Порядок блоков — часть состояния: кнопки ▲▼ двигают блок и порядок
  * сохраняется (verschmelze переносит порядок из сохранённых данных).
  *
@@ -134,9 +139,18 @@ function vorgabe() {
         id: 'retreat', titel: 'Ретрит', art: 'retreat',
         izderzhki: osnovnyeIzderzhki(),
         zeilen: [
-          { id: 'rt1', name: 'норм', szenario: 'norm', aktiv: true, c: 0, n: 0, g: 0, j: 0, t: 0, e: 0 },
-          { id: 'rt2', name: 'мин',  szenario: 'min',  aktiv: true, c: 0, n: 0, g: 0, j: 0, t: 0, e: 0 },
-          { id: 'rt3', name: 'мах',  szenario: 'max',  aktiv: true, c: 0, n: 0, g: 0, j: 0, t: 0, e: 0 },
+          { id: 'rt1', name: 'норм', szenario: 'norm', aktiv: true, c: 0, n: 0, g: 0, j: 0, t: 0, i: 0, e: 0 },
+          { id: 'rt2', name: 'мин',  szenario: 'min',  aktiv: true, c: 0, n: 0, g: 0, j: 0, t: 0, i: 0, e: 0 },
+          { id: 'rt3', name: 'мах',  szenario: 'max',  aktiv: true, c: 0, n: 0, g: 0, j: 0, t: 0, i: 0, e: 0 },
+        ],
+      },
+      {
+        id: 'gruppa1', titel: 'Группы', art: 'gruppa',
+        izderzhki: osnovnyeIzderzhki(),
+        zeilen: [
+          { id: 'gr1', name: 'норм', szenario: 'norm', aktiv: true, c: 0, e: 0, g: 0, j: 0, i: 0 },
+          { id: 'gr2', name: 'мин',  szenario: 'min',  aktiv: true, c: 0, e: 0, g: 0, j: 0, i: 0 },
+          { id: 'gr3', name: 'мах',  szenario: 'max',  aktiv: true, c: 0, e: 0, g: 0, j: 0, i: 0 },
         ],
       },
       {
@@ -181,6 +195,9 @@ const NAKIDKA_SESSII = 1.3;
 function rechne(block, z, wochen) {
   let umsatzMonat = 0;
   let stundenMonat = 0;
+  // Издержки на участников — отдельно от фиксированных издержек блока
+  // (аренда и т.п.): зависят от сценария, т.к. растут вместе с доходом.
+  let izderzhkiUchastnikov = 0;
 
   if (block.art === 'godovoe') {
     umsatzMonat = (z.c * z.f) / 12;
@@ -188,6 +205,7 @@ function rechne(block, z, wochen) {
   } else if (block.art === 'retreat') {
     umsatzMonat = (z.c * z.n * z.g * z.e) / 12;
     stundenMonat = ((z.j + (z.t || 0)) * z.e) / 12;
+    izderzhkiUchastnikov = (z.c * (z.i || 0) * z.e) / 12;
   } else if (block.art === 'individual') {
     // 1:1 — "раз в месяц" уже означает число сессий, умножать ещё и на
     // количество человек в сессии здесь не на что: оно всегда одно. Без
@@ -201,6 +219,13 @@ function rechne(block, z, wochen) {
     // надбавки 30% — пакет тоже состоит из консультаций 1:1.
     umsatzMonat = z.c * z.f;
     stundenMonat = z.c * z.n * z.j;
+  } else if (block.art === 'gruppa') {
+    // Групповое мероприятие: цена и издержки считаются на человека и
+    // умножаются на размер группы; продолжительность — одна на всё
+    // мероприятие, не зависит от числа участников.
+    umsatzMonat = z.c * z.g * z.e;
+    stundenMonat = z.j * z.e;
+    izderzhkiUchastnikov = z.c * (z.i || 0) * z.e;
   } else {
     // Групповая сессия: доход считается с каждого из c участников отдельно,
     // а часы — нет, ведущий тратит на занятие столько же времени независимо
@@ -217,12 +242,14 @@ function rechne(block, z, wochen) {
     stundenWoche: stundenMonat / w,
     stundenMonat,
     stundensatz: stundenMonat > 0 ? umsatzMonat / stundenMonat : null,
+    izderzhkiUchastnikov,
   };
 }
 
 const LEER = {
   umsatzWoche: 0, umsatzMonat: 0, umsatzJahr: 0,
   stundenWoche: 0, stundenMonat: 0, stundensatz: null,
+  izderzhkiUchastnikov: 0,
 };
 
 function summiere(teile) {
@@ -234,6 +261,7 @@ function summiere(teile) {
       stundenWoche: a.stundenWoche + t.stundenWoche,
       stundenMonat: a.stundenMonat + t.stundenMonat,
       stundensatz: null,
+      izderzhkiUchastnikov: a.izderzhkiUchastnikov + t.izderzhkiUchastnikov,
     }),
     { ...LEER },
   );
@@ -488,7 +516,17 @@ const FELDER = {
     { k: 'g', titel: 'Цена/ночь<br>с человека', schritt: '10' },
     { k: 'j', titel: 'Рабочих часов<br>всего', schritt: '0.5' },
     { k: 't', titel: 'Дорога<br>час. за поездку', schritt: '0.5' },
+    { k: 'i', titel: 'Издержки на<br>1 участника', schritt: '5' },
     { k: 'e', titel: 'Раз в<br>год', schritt: '1' },
+  ],
+  // Разовое/повторяющееся групповое мероприятие: цена и издержки считаются
+  // на человека, продолжительность — одна на всё мероприятие.
+  gruppa: [
+    { k: 'c', titel: 'Человек<br>в группе', schritt: '1' },
+    { k: 'e', titel: 'Раз в<br>месяц', schritt: '1' },
+    { k: 'g', titel: 'Цена для<br>1 участника', schritt: '5' },
+    { k: 'j', titel: 'Часов<br>(продолжительность)', schritt: '0.5' },
+    { k: 'i', titel: 'Издержки на<br>1 участника', schritt: '5' },
   ],
 };
 
@@ -583,6 +621,7 @@ function izderzhkiHtml(block) {
       zeilen +
       '<button type="button" class="izderzhki-hinzufuegen konto-link" data-izderzhki-add="' + block.id + '">+ добавить издержку</button>' +
       '<p class="klein" style="margin-top:8px"><strong>Издержки блока:</strong> <span data-aus="' + block.id + '.izderzhkiSumme"></span></p>' +
+      '<p class="klein gedaempft" data-aus="' + block.id + '.izderzhkiUchastnikov"></p>' +
     '</div>'
   );
 }
@@ -758,9 +797,15 @@ function aktualisiere() {
     ERGEBNISSE.forEach((sp) => setze(block.id + '.summe.' + sp.k, blockTeile.length === 0 ? '—' : sp.form(summe[sp.k])));
     setze(block.id + '.kopfsumme', geld(summe.umsatzMonat));
 
-    const blockIzderzhki = izderzhkiSumme(block);
-    izderzhkiVsego += blockIzderzhki;
-    setze(block.id + '.izderzhkiSumme', geld(blockIzderzhki) + ' CHF / мес');
+    // Издержки блока = фиксированные (аренда и т.п., не зависят от сценария)
+    // + на участников (зависят от сценария — растут вместе с доходом).
+    const blockIzderzhkiFiks = izderzhkiSumme(block);
+    const blockIzderzhkiUchastnikov = summe.izderzhkiUchastnikov;
+    izderzhkiVsego += blockIzderzhkiFiks + blockIzderzhkiUchastnikov;
+    setze(block.id + '.izderzhkiSumme', geld(blockIzderzhkiFiks + blockIzderzhkiUchastnikov) + ' CHF / мес');
+    setze(block.id + '.izderzhkiUchastnikov', blockIzderzhkiUchastnikov > 0
+      ? 'из них на участников: ' + geld(blockIzderzhkiUchastnikov) + ' CHF / мес'
+      : '');
   }
 
   const total = summiere(gesamtTeile);
