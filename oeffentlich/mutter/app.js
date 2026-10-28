@@ -47,6 +47,15 @@ function vorgabe() {
     nalogProzent: 0,
     bloecke: [
       {
+        id: 'godovoe', titel: 'Годовое сопровождение', art: 'godovoe',
+        izderzhki: osnovnyeIzderzhki(),
+        zeilen: [
+          { id: 'gd1', name: 'норм', szenario: 'norm', aktiv: true, c: 1, f: 0, e: 1, j: 1.5 },
+          { id: 'gd2', name: 'мин',  szenario: 'min',  aktiv: true, c: 1, f: 0, e: 1, j: 1.5 },
+          { id: 'gd3', name: 'мах',  szenario: 'max',  aktiv: true, c: 1, f: 0, e: 1, j: 1.5 },
+        ],
+      },
+      {
         id: 'yogaStudio', titel: 'Йога — группа, студия', art: 'sitzung',
         izderzhki: osnovnyeIzderzhki(),
         zeilen: [
@@ -98,15 +107,6 @@ function vorgabe() {
           { id: 'ks1', name: 'норм', szenario: 'norm', aktiv: true, c: 1, e: 10, g: 150, j: 1.5 },
           { id: 'ks2', name: 'мин',  szenario: 'min',  aktiv: true, c: 1, e: 5,  g: 100, j: 1.5 },
           { id: 'ks3', name: 'мах',  szenario: 'max',  aktiv: true, c: 1, e: 20, g: 300, j: 1.5 },
-        ],
-      },
-      {
-        id: 'godovoe', titel: 'Годовое сопровождение', art: 'godovoe',
-        izderzhki: osnovnyeIzderzhki(),
-        zeilen: [
-          { id: 'gd1', name: 'норм', szenario: 'norm', aktiv: true, c: 1, f: 0, e: 1, j: 1.5 },
-          { id: 'gd2', name: 'мин',  szenario: 'min',  aktiv: true, c: 1, f: 0, e: 1, j: 1.5 },
-          { id: 'gd3', name: 'мах',  szenario: 'max',  aktiv: true, c: 1, f: 0, e: 1, j: 1.5 },
         ],
       },
       {
@@ -517,15 +517,54 @@ function izderzhkiHtml(block) {
   );
 }
 
+/*
+ * Неиспользуемые направления (все строки дают 0 дохода и 0 часов) сворачиваются
+ * сами — чтобы десять блоков не превращались в стену нулей. "Показать"
+ * разворачивает блок вручную; он остаётся развёрнутым, пока не перезагрузить
+ * страницу. Кнопки ▲▼ работают и у свёрнутых блоков — порядок можно менять
+ * заранее, до того как блок заполнен.
+ */
+const razvernutye = new Set();
+
+function blockPust(block) {
+  return block.zeilen.every((z) => {
+    const e = rechne(block, z, zustand.wochenProMonat);
+    return e.umsatzMonat === 0 && e.stundenMonat === 0;
+  });
+}
+
+function reorderHtml(block, indeks, vsego) {
+  return (
+    '<div class="block-reorder">' +
+      '<button type="button" class="knopf-reorder" data-podnyat="' + block.id + '"' + (indeks === 0 ? ' disabled' : '') + ' aria-label="Поднять выше">▲</button>' +
+      '<button type="button" class="knopf-reorder" data-opustit="' + block.id + '"' + (indeks === vsego - 1 ? ' disabled' : '') + ' aria-label="Опустить ниже">▼</button>' +
+    '</div>'
+  );
+}
+
 function blockHtml(block, indeks, vsego) {
+  if (blockPust(block) && !razvernutye.has(block.id)) {
+    return (
+      '<article class="karte karte-eingeklappt">' +
+        '<div class="block-kopf" style="margin-bottom:0">' +
+          '<div style="display:flex; align-items:center; gap:10px">' +
+            reorderHtml(block, indeks, vsego) +
+            '<div class="block-titelzeile"><h3>' + esc(block.titel) + '</h3></div>' +
+          '</div>' +
+          '<div class="block-summe">' +
+            '<span class="nicht-hinterlegt">не используется</span>' +
+            '<button type="button" class="knopf knopf-umriss knopf-klein" data-klapp="' + block.id + '">Показать</button>' +
+          '</div>' +
+        '</div>' +
+      '</article>'
+    );
+  }
+
   return (
     '<article class="karte">' +
       '<div class="block-kopf">' +
         '<div style="display:flex; align-items:center; gap:10px">' +
-          '<div class="block-reorder">' +
-            '<button type="button" class="knopf-reorder" data-podnyat="' + block.id + '"' + (indeks === 0 ? ' disabled' : '') + ' aria-label="Поднять выше">▲</button>' +
-            '<button type="button" class="knopf-reorder" data-opustit="' + block.id + '"' + (indeks === vsego - 1 ? ' disabled' : '') + ' aria-label="Опустить ниже">▼</button>' +
-          '</div>' +
+          reorderHtml(block, indeks, vsego) +
           '<div class="block-titelzeile"><h3>' + esc(block.titel) + '</h3></div>' +
         '</div>' +
         '<div class="block-summe">' +
@@ -833,6 +872,19 @@ function verdrahte() {
 
     const opustit = e.target.closest('[data-opustit]');
     if (opustit !== null) { peredvinutBlok(opustit.dataset.opustit, 1); return; }
+
+    const klapp = e.target.closest('[data-klapp]');
+    if (klapp !== null) {
+      const blockId = klapp.dataset.klapp;
+      razvernutye.add(blockId);
+      zeichne();
+      aktualisiere();
+      const block = findeBlock(blockId);
+      const erstes = block === undefined ? null
+        : document.querySelector('[data-zeile="' + block.zeilen[0].id + '"]');
+      if (erstes !== null) erstes.focus();
+      return;
+    }
 
     const add = e.target.closest('[data-izderzhki-add]');
     if (add !== null) {
