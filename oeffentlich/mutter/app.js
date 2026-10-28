@@ -41,6 +41,15 @@ function osnovnyeIzderzhki() {
 function vorgabe() {
   const bloecke = [
       {
+        id: 'konsultaciiSoprovozhdenie', titel: 'Консультации / сопровождение', art: 'sitzung',
+        izderzhki: osnovnyeIzderzhki(),
+        zeilen: [
+          { id: 'ks1', name: 'норм', szenario: 'norm', aktiv: true, c: 1, e: 10, g: 150, j: 1.5 },
+          { id: 'ks2', name: 'мин',  szenario: 'min',  aktiv: true, c: 1, e: 5,  g: 100, j: 1.5 },
+          { id: 'ks3', name: 'мах',  szenario: 'max',  aktiv: true, c: 1, e: 20, g: 300, j: 1.5 },
+        ],
+      },
+      {
         id: 'godovoe', titel: 'Годовое сопровождение', art: 'godovoe',
         izderzhki: osnovnyeIzderzhki(),
         zeilen: [
@@ -92,15 +101,6 @@ function vorgabe() {
           { id: 'gi1', name: 'норм', szenario: 'norm', aktiv: true, c: 1, e: 4, g: 150, j: 1 },
           { id: 'gi2', name: 'мин',  szenario: 'min',  aktiv: true, c: 1, e: 2, g: 150, j: 1 },
           { id: 'gi3', name: 'мах',  szenario: 'max',  aktiv: true, c: 1, e: 8, g: 150, j: 1 },
-        ],
-      },
-      {
-        id: 'konsultaciiSoprovozhdenie', titel: 'Консультации / сопровождение', art: 'sitzung',
-        izderzhki: osnovnyeIzderzhki(),
-        zeilen: [
-          { id: 'ks1', name: 'норм', szenario: 'norm', aktiv: true, c: 1, e: 10, g: 150, j: 1.5 },
-          { id: 'ks2', name: 'мин',  szenario: 'min',  aktiv: true, c: 1, e: 5,  g: 100, j: 1.5 },
-          { id: 'ks3', name: 'мах',  szenario: 'max',  aktiv: true, c: 1, e: 20, g: 300, j: 1.5 },
         ],
       },
       {
@@ -538,10 +538,14 @@ function izderzhkiHtml(block) {
  * хранится в данных блока и сохраняется вместе со всем остальным.
  */
 function reorderHtml(block, indeks, vsego) {
+  const vNachale = indeks === 0;
+  const vKonce = indeks === vsego - 1;
   return (
     '<div class="block-reorder">' +
-      '<button type="button" class="knopf-reorder" data-podnyat="' + block.id + '"' + (indeks === 0 ? ' disabled' : '') + ' aria-label="Поднять выше">▲</button>' +
-      '<button type="button" class="knopf-reorder" data-opustit="' + block.id + '"' + (indeks === vsego - 1 ? ' disabled' : '') + ' aria-label="Опустить ниже">▼</button>' +
+      '<button type="button" class="knopf-reorder" data-vnachalo="' + block.id + '"' + (vNachale ? ' disabled' : '') + ' title="Переместить в начало" aria-label="Переместить в начало списка">⏫</button>' +
+      '<button type="button" class="knopf-reorder" data-podnyat="' + block.id + '"' + (vNachale ? ' disabled' : '') + ' title="Поднять выше" aria-label="Поднять выше">▲</button>' +
+      '<button type="button" class="knopf-reorder" data-opustit="' + block.id + '"' + (vKonce ? ' disabled' : '') + ' title="Опустить ниже" aria-label="Опустить ниже">▼</button>' +
+      '<button type="button" class="knopf-reorder" data-vkonec="' + block.id + '"' + (vKonce ? ' disabled' : '') + ' title="Переместить в конец" aria-label="Переместить в конец списка">⏬</button>' +
     '</div>'
   );
 }
@@ -809,10 +813,25 @@ function peredvinutBlok(id, naprav) {
   zeichne();
   aktualisiere();
   speichern();
-  // Перемещение страницу не прокручивает само — без этого на длинном списке
-  // нажатие ▲▼ выглядит так, будто ничего не произошло.
+  // 'nearest' statt 'center': bei einem Schritt um eine Position bleibt der
+  // Block sonst exakt in der Bildschirmmitte — vorher wie nachher — und die
+  // Verschiebung ist nicht zu sehen, obwohl sie passiert ist.
   const elem = document.getElementById('blok-' + id);
-  if (elem !== null) elem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (elem !== null) elem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// "В начало"/"В конец": ein Klick statt vieler ▲▼-Klicks, und der deutliche
+// Sprung an den Rand der Liste macht die Verschiebung unmissverständlich.
+function peredvinutVKrai(id, kuda) {
+  const i = zustand.bloecke.findIndex((b) => b.id === id);
+  if (i === -1) return;
+  const [blok] = zustand.bloecke.splice(i, 1);
+  if (kuda === 'nachalo') zustand.bloecke.unshift(blok); else zustand.bloecke.push(blok);
+  zeichne();
+  aktualisiere();
+  speichern();
+  const elem = document.getElementById('blok-' + id);
+  if (elem !== null) elem.scrollIntoView({ behavior: 'smooth', block: kuda === 'nachalo' ? 'start' : 'end' });
 }
 
 function verdrahte() {
@@ -875,6 +894,12 @@ function verdrahte() {
   });
 
   document.body.addEventListener('click', (e) => {
+    const vnachalo = e.target.closest('[data-vnachalo]');
+    if (vnachalo !== null) { peredvinutVKrai(vnachalo.dataset.vnachalo, 'nachalo'); return; }
+
+    const vkonec = e.target.closest('[data-vkonec]');
+    if (vkonec !== null) { peredvinutVKrai(vkonec.dataset.vkonec, 'konec'); return; }
+
     const podnyat = e.target.closest('[data-podnyat]');
     if (podnyat !== null) { peredvinutBlok(podnyat.dataset.podnyat, -1); return; }
 
