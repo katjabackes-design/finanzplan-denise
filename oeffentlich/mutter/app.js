@@ -144,6 +144,10 @@ function vorgabe() {
     zielUmsatz: 5000,
     kapazitaet: 20,
     nalogProzent: 0,
+    // Свой пример: снимок цифр, который сохраняют кнопкой "Сохранить как
+    // пример" — пока он null, "Сбросить к примеру" возвращает к демо-цифрам
+    // отсюда же (bloecke выше).
+    primer: null,
     bloecke,
   };
 }
@@ -250,6 +254,7 @@ function verschmelze(frisch, gespeichert) {
   frisch.zielUmsatz = gespeichert.zielUmsatz ?? frisch.zielUmsatz;
   frisch.kapazitaet = gespeichert.kapazitaet ?? frisch.kapazitaet;
   frisch.nalogProzent = gespeichert.nalogProzent ?? frisch.nalogProzent;
+  frisch.primer = gespeichert.primer ?? frisch.primer;
 
   for (const block of frisch.bloecke) {
     const alt = (gespeichert.bloecke ?? []).find((b) => b.id === block.id);
@@ -998,12 +1003,33 @@ function verdrahte() {
       return;
     }
 
+    if (e.target.id === 'sohranit-primer') {
+      if (!window.confirm('Сохранить текущие цифры как пример? Кнопка "Сбросить к примеру" будет возвращать именно к ним.')) return;
+      zustand.primer = JSON.parse(JSON.stringify({
+        bloecke: zustand.bloecke,
+        nalogProzent: zustand.nalogProzent,
+        zielUmsatz: zustand.zielUmsatz,
+        kapazitaet: zustand.kapazitaet,
+        wochenProMonat: zustand.wochenProMonat,
+      }));
+      speichern();
+      return;
+    }
+
     if (e.target.id === 'zuruecksetzen') {
-      if (!window.confirm('Сбросить всё к примерным значениям (пример при первом открытии)?')) return;
-      try { localStorage.removeItem(SCHLUESSEL); } catch { /* неважно */ }
-      zustand = vorgabe();
+      const svoi = zustand.primer;
+      if (!window.confirm(svoi
+        ? 'Сбросить всё к твоему сохранённому примеру?'
+        : 'Сбросить всё к исходным демо-значениям? (Свой пример ещё не сохранён — кнопка "Сохранить как пример".)')) return;
+      const istochnik = svoi ? JSON.parse(JSON.stringify(svoi)) : vorgabe();
+      zustand.bloecke = istochnik.bloecke;
+      zustand.nalogProzent = istochnik.nalogProzent;
+      zustand.zielUmsatz = istochnik.zielUmsatz;
+      zustand.kapazitaet = istochnik.kapazitaet;
+      zustand.wochenProMonat = istochnik.wochenProMonat;
       zeichne();
       aktualisiere();
+      speichern();
       return;
     }
 
