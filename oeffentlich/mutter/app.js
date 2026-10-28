@@ -39,13 +39,7 @@ function osnovnyeIzderzhki() {
 }
 
 function vorgabe() {
-  return {
-    szenario: 'norm',
-    wochenProMonat: 4,
-    zielUmsatz: 5000,
-    kapazitaet: 20,
-    nalogProzent: 0,
-    bloecke: [
+  const bloecke = [
       {
         id: 'godovoe', titel: 'Годовое сопровождение', art: 'godovoe',
         izderzhki: osnovnyeIzderzhki(),
@@ -136,7 +130,19 @@ function vorgabe() {
           { id: 'dr3', name: 'мах',  szenario: 'max',  aktiv: true, c: 0, e: 0, g: 0, j: 0 },
         ],
       },
-    ],
+  ];
+
+  // Jeder Block startet sichtbar — "скрыть" ist eine bewusste Entscheidung
+  // der Nutzerin, kein automatischer Zustand.
+  bloecke.forEach((b) => { b.skryt = false; });
+
+  return {
+    szenario: 'norm',
+    wochenProMonat: 4,
+    zielUmsatz: 5000,
+    kapazitaet: 20,
+    nalogProzent: 0,
+    bloecke,
   };
 }
 
@@ -247,6 +253,7 @@ function verschmelze(frisch, gespeichert) {
     const alt = (gespeichert.bloecke ?? []).find((b) => b.id === block.id);
     if (alt === undefined) continue;
     if (Array.isArray(alt.izderzhki)) block.izderzhki = alt.izderzhki;
+    if (typeof alt.skryt === 'boolean') block.skryt = alt.skryt;
     for (const zeile of block.zeilen) {
       const altZ = (alt.zeilen ?? []).find((z) => z.id === zeile.id);
       if (altZ === undefined) continue;
@@ -525,21 +532,11 @@ function izderzhkiHtml(block) {
 }
 
 /*
- * Неиспользуемые направления (все строки дают 0 дохода и 0 часов) сворачиваются
- * сами — чтобы десять блоков не превращались в стену нулей. "Показать"
- * разворачивает блок вручную; он остаётся развёрнутым, пока не перезагрузить
- * страницу. Кнопки ▲▼ работают и у свёрнутых блоков — порядок можно менять
- * заранее, до того как блок заполнен.
+ * Скрыть блок — осознанное решение самой пользователя (например, направление
+ * сейчас не ведётся), а не автоматика по пустым значениям: у блока могут
+ * стоять реальные цифры, но его всё равно нужно убрать с глаз. Флаг skryt
+ * хранится в данных блока и сохраняется вместе со всем остальным.
  */
-const razvernutye = new Set();
-
-function blockPust(block) {
-  return block.zeilen.every((z) => {
-    const e = rechne(block, z, zustand.wochenProMonat);
-    return e.umsatzMonat === 0 && e.stundenMonat === 0;
-  });
-}
-
 function reorderHtml(block, indeks, vsego) {
   return (
     '<div class="block-reorder">' +
@@ -550,16 +547,15 @@ function reorderHtml(block, indeks, vsego) {
 }
 
 function blockHtml(block, indeks, vsego) {
-  if (blockPust(block) && !razvernutye.has(block.id)) {
+  if (block.skryt === true) {
     return (
-      '<article class="karte karte-eingeklappt">' +
+      '<article class="karte karte-eingeklappt" id="blok-' + block.id + '">' +
         '<div class="block-kopf" style="margin-bottom:0">' +
           '<div style="display:flex; align-items:center; gap:10px">' +
             reorderHtml(block, indeks, vsego) +
             '<div class="block-titelzeile"><h3>' + esc(block.titel) + '</h3></div>' +
           '</div>' +
           '<div class="block-summe">' +
-            '<span class="nicht-hinterlegt">не используется</span>' +
             '<button type="button" class="knopf knopf-umriss knopf-klein" data-klapp="' + block.id + '">Показать</button>' +
           '</div>' +
         '</div>' +
@@ -568,7 +564,7 @@ function blockHtml(block, indeks, vsego) {
   }
 
   return (
-    '<article class="karte">' +
+    '<article class="karte" id="blok-' + block.id + '">' +
       '<div class="block-kopf">' +
         '<div style="display:flex; align-items:center; gap:10px">' +
           reorderHtml(block, indeks, vsego) +
@@ -577,6 +573,7 @@ function blockHtml(block, indeks, vsego) {
         '<div class="block-summe">' +
           '<span class="block-summe-wert" data-aus="' + block.id + '.kopfsumme"></span>' +
           '<span class="klein gedaempft">CHF / мес</span>' +
+          '<button type="button" class="knopf knopf-umriss knopf-klein" data-svernut="' + block.id + '">Скрыть</button>' +
         '</div>' +
       '</div>' +
       tabellenBlockHtml(block) +
@@ -812,6 +809,10 @@ function peredvinutBlok(id, naprav) {
   zeichne();
   aktualisiere();
   speichern();
+  // Перемещение страницу не прокручивает само — без этого на длинном списке
+  // нажатие ▲▼ выглядит так, будто ничего не произошло.
+  const elem = document.getElementById('blok-' + id);
+  if (elem !== null) elem.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 function verdrahte() {
@@ -882,14 +883,27 @@ function verdrahte() {
 
     const klapp = e.target.closest('[data-klapp]');
     if (klapp !== null) {
-      const blockId = klapp.dataset.klapp;
-      razvernutye.add(blockId);
-      zeichne();
-      aktualisiere();
-      const block = findeBlock(blockId);
-      const erstes = block === undefined ? null
-        : document.querySelector('[data-zeile="' + block.zeilen[0].id + '"]');
-      if (erstes !== null) erstes.focus();
+      const block = findeBlock(klapp.dataset.klapp);
+      if (block !== undefined) {
+        block.skryt = false;
+        zeichne();
+        aktualisiere();
+        speichern();
+        const erstes = document.querySelector('[data-zeile="' + block.zeilen[0].id + '"]');
+        if (erstes !== null) erstes.focus();
+      }
+      return;
+    }
+
+    const svernut = e.target.closest('[data-svernut]');
+    if (svernut !== null) {
+      const block = findeBlock(svernut.dataset.svernut);
+      if (block !== undefined) {
+        block.skryt = true;
+        zeichne();
+        aktualisiere();
+        speichern();
+      }
       return;
     }
 
@@ -940,8 +954,25 @@ function verdrahte() {
       return;
     }
 
+    if (e.target.id === 'obnulit') {
+      if (!window.confirm('Обнулить все цифры в таблице? Структура, порядок и скрытые блоки останутся.')) return;
+      for (const block of zustand.bloecke) {
+        for (const zeile of block.zeilen) {
+          for (const k of Object.keys(zeile)) {
+            if (typeof zeile[k] === 'number') zeile[k] = 0;
+          }
+        }
+        (block.izderzhki ?? []).forEach((i) => { i.betrag = 0; });
+      }
+      zustand.nalogProzent = 0;
+      zeichne();
+      aktualisiere();
+      speichern();
+      return;
+    }
+
     if (e.target.id === 'zuruecksetzen') {
-      if (!window.confirm('Сбросить все значения к исходным?')) return;
+      if (!window.confirm('Сбросить всё к примерным значениям (пример при первом открытии)?')) return;
       try { localStorage.removeItem(SCHLUESSEL); } catch { /* неважно */ }
       zustand = vorgabe();
       zeichne();
