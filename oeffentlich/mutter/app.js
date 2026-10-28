@@ -43,12 +43,12 @@ function osnovnyeIzderzhki() {
 function vorgabe() {
   const bloecke = [
       {
-        id: 'konsultaciiSoprovozhdenie', titel: 'Консультации / сопровождение', art: 'sitzung',
+        id: 'konsultaciiSoprovozhdenie', titel: 'Консультации / сопровождение', art: 'individual',
         izderzhki: osnovnyeIzderzhki(),
         zeilen: [
-          { id: 'ks1', name: 'норм', szenario: 'norm', aktiv: true, c: 1, e: 10, g: 150, j: 1.5 },
-          { id: 'ks2', name: 'мин',  szenario: 'min',  aktiv: true, c: 1, e: 5,  g: 100, j: 1.5 },
-          { id: 'ks3', name: 'мах',  szenario: 'max',  aktiv: true, c: 1, e: 20, g: 300, j: 1.5 },
+          { id: 'ks1', name: 'норм', szenario: 'norm', aktiv: true, e: 10, g: 150, j: 1.5 },
+          { id: 'ks2', name: 'мин',  szenario: 'min',  aktiv: true, e: 5,  g: 100, j: 1.5 },
+          { id: 'ks3', name: 'мах',  szenario: 'max',  aktiv: true, e: 20, g: 300, j: 1.5 },
         ],
       },
       {
@@ -97,12 +97,12 @@ function vorgabe() {
         ],
       },
       {
-        id: 'gvozdiIndividual', titel: 'Гвоздестояние — индивидуально', art: 'sitzung',
+        id: 'gvozdiIndividual', titel: 'Гвоздестояние — индивидуально', art: 'individual',
         izderzhki: osnovnyeIzderzhki(),
         zeilen: [
-          { id: 'gi1', name: 'норм', szenario: 'norm', aktiv: true, c: 1, e: 4, g: 150, j: 1 },
-          { id: 'gi2', name: 'мин',  szenario: 'min',  aktiv: true, c: 1, e: 2, g: 150, j: 1 },
-          { id: 'gi3', name: 'мах',  szenario: 'max',  aktiv: true, c: 1, e: 8, g: 150, j: 1 },
+          { id: 'gi1', name: 'норм', szenario: 'norm', aktiv: true, e: 4, g: 150, j: 1 },
+          { id: 'gi2', name: 'мин',  szenario: 'min',  aktiv: true, e: 2, g: 150, j: 1 },
+          { id: 'gi3', name: 'мах',  szenario: 'max',  aktiv: true, e: 8, g: 150, j: 1 },
         ],
       },
       {
@@ -170,7 +170,15 @@ function rechne(block, z, wochen) {
   } else if (block.art === 'retreat') {
     umsatzMonat = (z.c * z.n * z.g * z.e) / 12;
     stundenMonat = ((z.j + (z.t || 0)) * z.e) / 12;
+  } else if (block.art === 'individual') {
+    // 1:1 — "раз в месяц" уже означает число сессий, умножать ещё и на
+    // количество человек в сессии здесь не на что: оно всегда одно.
+    umsatzMonat = z.e * z.g;
+    stundenMonat = z.e * z.j * NAKIDKA_SESSII;
   } else {
+    // Групповая сессия: доход считается с каждого из c участников отдельно,
+    // а часы — нет, ведущий тратит на занятие столько же времени независимо
+    // от размера группы.
     umsatzMonat = z.c * z.e * z.g;
     stundenMonat = z.e * z.j * NAKIDKA_SESSII;
   }
@@ -423,6 +431,14 @@ async function initKonto() {
 const FELDER = {
   sitzung: [
     { k: 'c', titel: 'Человек', schritt: '1' },
+    { k: 'e', titel: 'Раз в<br>месяц', schritt: '1' },
+    { k: 'g', titel: 'Стоимость', schritt: '5' },
+    { k: 'j', titel: 'Время нетто<br>час.', schritt: '0.5' },
+  ],
+  // Индивидуальные услуги 1:1 — без поля "Человек": его здесь нечем
+  // наполнить (в сессии всегда один человек), а случайное значение ≠ 1
+  // искажало бы доход, не меняя часы.
+  individual: [
     { k: 'e', titel: 'Раз в<br>месяц', schritt: '1' },
     { k: 'g', titel: 'Стоимость', schritt: '5' },
     { k: 'j', titel: 'Время нетто<br>час.', schritt: '0.5' },
